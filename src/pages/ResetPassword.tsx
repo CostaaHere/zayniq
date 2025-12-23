@@ -2,17 +2,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Lock, CheckCircle, Eye, EyeOff } from "lucide-react";
+import { Lock, CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
+  const { updatePassword } = useAuth();
+  const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState("");
 
   const getPasswordStrength = (pwd: string) => {
     let strength = 0;
@@ -43,25 +46,41 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters",
+        variant: "destructive",
+      });
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure both passwords match",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const { error } = await updatePassword(password);
+
+    setIsLoading(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Unable to update password. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSuccess(true);
-    setIsLoading(false);
 
     // Redirect to signin after 2 seconds
     setTimeout(() => {
@@ -103,6 +122,7 @@ const ResetPassword = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pr-10"
+                    disabled={isLoading}
                     required
                   />
                   <button
@@ -163,6 +183,7 @@ const ResetPassword = () => {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="w-full pr-10"
+                    disabled={isLoading}
                     required
                   />
                   <button
@@ -184,14 +205,19 @@ const ResetPassword = () => {
                 )}
               </div>
 
-              {error && <p className="text-destructive text-sm">{error}</p>}
-
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90"
                 disabled={isLoading}
               >
-                {isLoading ? "Resetting..." : "Reset Password"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Resetting...
+                  </>
+                ) : (
+                  "Reset Password"
+                )}
               </Button>
             </form>
           </div>

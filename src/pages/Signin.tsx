@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { Eye, EyeOff, Users, Star, Shield, Loader2 } from "lucide-react";
 
 const Signin = () => {
   const { toast } = useToast();
+  const { signIn, signInWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,7 +31,6 @@ const Signin = () => {
       return;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast({
@@ -42,33 +43,29 @@ const Signin = () => {
 
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Simulate error scenarios for demo
-    const email = formData.email.toLowerCase();
-    
-    if (email.includes("notfound")) {
-      setIsLoading(false);
-      toast({
-        title: "Account not found",
-        description: "No account exists with this email. Please sign up first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (email.includes("invalid") || formData.password.length < 6) {
-      setIsLoading(false);
-      toast({
-        title: "Invalid credentials",
-        description: "The email or password you entered is incorrect.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const { error } = await signIn(formData.email, formData.password);
 
     setIsLoading(false);
+
+    if (error) {
+      let errorMessage = "An error occurred during sign in.";
+      
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Invalid email or password. Please try again.";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "Please verify your email before signing in.";
+      } else if (error.message.includes("User not found")) {
+        errorMessage = "No account found with this email. Please sign up first.";
+      }
+
+      toast({
+        title: "Sign in failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Welcome back!",
       description: "You have successfully signed in.",
@@ -77,12 +74,16 @@ const Signin = () => {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const { error } = await signInWithGoogle();
     setIsLoading(false);
-    toast({
-      title: "Google Sign In",
-      description: "Google authentication would be initiated here.",
-    });
+
+    if (error) {
+      toast({
+        title: "Google sign in failed",
+        description: "Unable to sign in with Google. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const stats = [
