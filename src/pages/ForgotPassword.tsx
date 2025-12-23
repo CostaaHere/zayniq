@@ -2,36 +2,55 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KeyRound, ArrowLeft, Mail, CheckCircle } from "lucide-react";
+import { KeyRound, ArrowLeft, Mail, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const ForgotPassword = () => {
+  const { resetPassword } = useAuth();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    
+    if (!email.includes("@")) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const { error } = await resetPassword(email);
 
-    if (!email.includes("@")) {
-      setError("Please enter a valid email address");
-      setIsLoading(false);
+    setIsLoading(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Unable to send reset link. Please try again.",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsSuccess(true);
-    setIsLoading(false);
   };
 
   const handleResend = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await resetPassword(email);
     setIsLoading(false);
+    toast({
+      title: "Email sent",
+      description: "A new reset link has been sent to your email.",
+    });
   };
 
   return (
@@ -66,20 +85,24 @@ const ForgotPassword = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full"
+                  disabled={isLoading}
                   required
                 />
               </div>
-
-              {error && (
-                <p className="text-destructive text-sm">{error}</p>
-              )}
 
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90"
                 disabled={isLoading}
               >
-                {isLoading ? "Sending..." : "Send Reset Link"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Reset Link"
+                )}
               </Button>
             </form>
 
