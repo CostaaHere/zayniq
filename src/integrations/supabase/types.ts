@@ -14,7 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      channels: {
+        Row: {
+          channel_name: string
+          created_at: string
+          description: string | null
+          id: string
+          last_synced_at: string | null
+          subscriber_count: number | null
+          thumbnail_url: string | null
+          total_view_count: number | null
+          user_id: string
+          video_count: number | null
+          youtube_channel_id: string
+        }
+        Insert: {
+          channel_name: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_synced_at?: string | null
+          subscriber_count?: number | null
+          thumbnail_url?: string | null
+          total_view_count?: number | null
+          user_id: string
+          video_count?: number | null
+          youtube_channel_id: string
+        }
+        Update: {
+          channel_name?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          last_synced_at?: string | null
+          subscriber_count?: number | null
+          thumbnail_url?: string | null
+          total_view_count?: number | null
+          user_id?: string
+          video_count?: number | null
+          youtube_channel_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channels_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          channel_niche: string | null
+          created_at: string
+          email: string | null
+          experience_level: string | null
+          full_name: string | null
+          id: string
+          onboarding_completed: boolean
+          onboarding_step: number
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          channel_niche?: string | null
+          created_at?: string
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id: string
+          onboarding_completed?: boolean
+          onboarding_step?: number
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          channel_niche?: string | null
+          created_at?: string
+          email?: string | null
+          experience_level?: string | null
+          full_name?: string | null
+          id?: string
+          onboarding_completed?: boolean
+          onboarding_step?: number
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +114,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      subscription_tier: "free" | "pro" | "agency"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +241,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      subscription_tier: ["free", "pro", "agency"],
+    },
   },
 } as const
