@@ -72,9 +72,11 @@ export type Database = {
           email: string | null
           experience_level: string | null
           full_name: string | null
+          goals: string[] | null
           id: string
           onboarding_completed: boolean
           onboarding_step: number
+          subscriber_goal: number | null
           subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           updated_at: string
         }
@@ -85,9 +87,11 @@ export type Database = {
           email?: string | null
           experience_level?: string | null
           full_name?: string | null
+          goals?: string[] | null
           id: string
           onboarding_completed?: boolean
           onboarding_step?: number
+          subscriber_goal?: number | null
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           updated_at?: string
         }
@@ -98,9 +102,11 @@ export type Database = {
           email?: string | null
           experience_level?: string | null
           full_name?: string | null
+          goals?: string[] | null
           id?: string
           onboarding_completed?: boolean
           onboarding_step?: number
+          subscriber_goal?: number | null
           subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           updated_at?: string
         }
