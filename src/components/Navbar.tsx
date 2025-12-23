@@ -2,6 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 
 const Navbar = () => {
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
@@ -13,15 +20,24 @@ const Navbar = () => {
         </div>
 
         <div className="hidden md:flex items-center gap-8">
-          <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={() => scrollToSection("features")}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             Features
-          </a>
-          <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
+          </button>
+          <button
+            onClick={() => scrollToSection("pricing")}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             Pricing
-          </a>
-          <a href="#testimonials" className="text-muted-foreground hover:text-foreground transition-colors">
+          </button>
+          <button
+            onClick={() => scrollToSection("testimonials")}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             Testimonials
-          </a>
+          </button>
         </div>
 
         <div className="flex items-center gap-4">
