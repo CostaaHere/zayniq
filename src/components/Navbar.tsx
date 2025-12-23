@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 
@@ -41,11 +42,11 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm">
-            Sign In
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/login">Sign In</Link>
           </Button>
-          <Button variant="hero" size="sm">
-            Get Started
+          <Button variant="hero" size="sm" asChild>
+            <Link to="/signup">Get Started</Link>
           </Button>
         </div>
       </div>
