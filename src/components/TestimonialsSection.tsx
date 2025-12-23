@@ -4,7 +4,7 @@ const testimonials = [
   {
     name: "Alex Chen",
     role: "Tech Reviewer • 2.1M Subscribers",
-    content: "TubeBoost completely transformed how I approach my content strategy. The AI suggestions alone helped me increase my CTR by 40%.",
+    content: "ZaynIQ completely transformed how I approach my content strategy. The AI suggestions alone helped me increase my CTR by 40%.",
     avatar: "AC",
   },
   {
@@ -33,7 +33,7 @@ const TestimonialsSection = () => {
             <span className="gradient-text"> top creators</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Join thousands of successful YouTubers who trust TubeBoost to grow their channels.
+            Join thousands of successful YouTubers who trust ZaynIQ to grow their channels.
           </p>
         </div>
 
