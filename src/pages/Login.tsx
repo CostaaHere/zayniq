@@ -48,10 +48,10 @@ const Login = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-8">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Zap className="w-6 h-6 text-primary-foreground" />
+              <span className="text-xl font-bold text-primary-foreground">Z</span>
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              TubeBoost
+              ZaynIQ
             </span>
           </Link>
 
