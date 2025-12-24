@@ -17,6 +17,9 @@ import VideoDetail from "./pages/VideoDetail";
 import Channel from "./pages/Channel";
 import Keywords from "./pages/Keywords";
 import Competitors from "./pages/Competitors";
+import AITools from "./pages/AITools";
+import TitleGenerator from "./pages/TitleGenerator";
+import DescriptionGenerator from "./pages/DescriptionGenerator";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
@@ -88,6 +91,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Competitors />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/ai-tools"
+              element={
+                <ProtectedRoute>
+                  <AITools />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/ai-tools/titles"
+              element={
+                <ProtectedRoute>
+                  <TitleGenerator />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/ai-tools/descriptions"
+              element={
+                <ProtectedRoute>
+                  <DescriptionGenerator />
                 </ProtectedRoute>
               }
             />
