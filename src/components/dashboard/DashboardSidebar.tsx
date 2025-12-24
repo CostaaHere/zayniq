@@ -146,7 +146,8 @@ const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
       {/* Collapse Toggle */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-20 w-6 h-6 bg-card border border-border rounded-full flex items-center justify-center hover:bg-muted transition-colors"
+        className="absolute -right-3 top-20 w-6 h-6 bg-primary text-primary-foreground border-2 border-background rounded-full flex items-center justify-center hover:bg-primary/90 transition-all duration-300 ease-in-out shadow-md hover:scale-110 z-50"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? (
           <ChevronRight className="w-3 h-3" />

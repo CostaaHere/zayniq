@@ -14,6 +14,7 @@ import Dashboard from "./pages/Dashboard";
 import Videos from "./pages/Videos";
 import VideoDetail from "./pages/VideoDetail";
 import Channel from "./pages/Channel";
+import Keywords from "./pages/Keywords";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
@@ -69,6 +70,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Channel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/keywords"
+              element={
+                <ProtectedRoute>
+                  <Keywords />
                 </ProtectedRoute>
               }
             />
