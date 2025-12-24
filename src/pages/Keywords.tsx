@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -26,9 +27,11 @@ import {
   BarChart3,
   Zap,
   X,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import AIKeywordGenerator from "@/components/keywords/AIKeywordGenerator";
 
 interface KeywordResult {
   keyword: string;
@@ -205,12 +208,44 @@ const Keywords = () => {
     return savedKeywords.some((k) => k.keyword === keyword);
   };
 
+  const handleSaveFromAI = (keyword: string) => {
+    const isAlreadySaved = savedKeywords.some((k) => k.keyword === keyword);
+    if (isAlreadySaved) {
+      setSavedKeywords((prev) => prev.filter((k) => k.keyword !== keyword));
+      toast.success("Keyword removed from saved list");
+    } else {
+      const newKeyword: KeywordResult = {
+        keyword,
+        monthlySearches: Math.floor(Math.random() * 50000) + 5000,
+        competition: ["Low", "Medium", "High"][Math.floor(Math.random() * 3)] as "Low" | "Medium" | "High",
+        trend: ["up", "down", "stable"][Math.floor(Math.random() * 3)] as "up" | "down" | "stable",
+        cpc: parseFloat((Math.random() * 2 + 0.5).toFixed(2)),
+      };
+      setSavedKeywords((prev) => [...prev, newKeyword]);
+      toast.success("Keyword saved successfully");
+    }
+  };
+
   return (
     <DashboardLayout title="Keyword Research">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Search Section */}
+          {/* Tabs for Search vs AI */}
+          <Tabs defaultValue="search" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="search" className="gap-2">
+                <Search className="w-4 h-4" />
+                Keyword Search
+              </TabsTrigger>
+              <TabsTrigger value="ai" className="gap-2">
+                <Sparkles className="w-4 h-4" />
+                AI Suggestions
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="search" className="space-y-6">
+              {/* Search Section */}
           <Card className="bg-card border-border">
             <CardContent className="pt-6">
               <div className="flex gap-3">
@@ -440,6 +475,15 @@ const Keywords = () => {
               </CardContent>
             </Card>
           )}
+            </TabsContent>
+
+            <TabsContent value="ai">
+              <AIKeywordGenerator
+                onSaveKeyword={handleSaveFromAI}
+                savedKeywords={savedKeywords.map((k) => k.keyword)}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Saved Keywords Sidebar */}

@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_generations: {
+        Row: {
+          created_at: string
+          generation_type: string
+          id: string
+          input_niche: string | null
+          input_topic: string
+          longtail_keywords: Json | null
+          primary_keywords: Json | null
+          question_keywords: Json | null
+          trending_topics: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generation_type?: string
+          id?: string
+          input_niche?: string | null
+          input_topic: string
+          longtail_keywords?: Json | null
+          primary_keywords?: Json | null
+          question_keywords?: Json | null
+          trending_topics?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generation_type?: string
+          id?: string
+          input_niche?: string | null
+          input_topic?: string
+          longtail_keywords?: Json | null
+          primary_keywords?: Json | null
+          question_keywords?: Json | null
+          trending_topics?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       channels: {
         Row: {
           channel_name: string
