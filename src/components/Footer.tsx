@@ -18,7 +18,7 @@ const Footer = () => {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                 <Play className="w-4 h-4 text-primary-foreground fill-current" />
               </div>
-              <span className="text-xl font-bold gradient-text">ZaynIQ</span>
+              <span className="text-xl font-bold gradient-text">ZainIQ</span>
             </div>
             <p className="text-muted-foreground max-w-xs">
               Empowering creators with data-driven insights to build successful YouTube channels.
@@ -47,7 +47,7 @@ const Footer = () => {
 
         <div className="border-t border-border/50 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2024 ZaynIQ. All rights reserved.
+            © 2024 ZainIQ. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
             <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">

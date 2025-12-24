@@ -49,11 +49,11 @@ const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
       {/* Logo */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-          <span className="text-xl font-bold text-primary-foreground">T</span>
+          <span className="text-xl font-bold text-primary-foreground">Z</span>
         </div>
         {!collapsed && (
           <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            TubeBoost
+            ZainIQ
           </span>
         )}
       </div>
