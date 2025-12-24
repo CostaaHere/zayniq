@@ -17,7 +17,7 @@ const Navbar = () => {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
             <Play className="w-4 h-4 text-primary-foreground fill-current" />
           </div>
-          <span className="text-xl font-bold gradient-text">ZaynIQ</span>
+          <span className="text-xl font-bold gradient-text">ZainIQ</span>
         </div>
 
         <div className="hidden md:flex items-center gap-8">
