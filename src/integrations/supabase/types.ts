@@ -103,6 +103,60 @@ export type Database = {
           },
         ]
       }
+      competitors: {
+        Row: {
+          banner_url: string | null
+          channel_id: string | null
+          channel_name: string
+          channel_url: string
+          created_at: string
+          id: string
+          last_video_date: string | null
+          notes: string | null
+          subscriber_count: number | null
+          thumbnail_url: string | null
+          total_views: number | null
+          updated_at: string
+          upload_frequency: string | null
+          user_id: string
+          video_count: number | null
+        }
+        Insert: {
+          banner_url?: string | null
+          channel_id?: string | null
+          channel_name: string
+          channel_url: string
+          created_at?: string
+          id?: string
+          last_video_date?: string | null
+          notes?: string | null
+          subscriber_count?: number | null
+          thumbnail_url?: string | null
+          total_views?: number | null
+          updated_at?: string
+          upload_frequency?: string | null
+          user_id: string
+          video_count?: number | null
+        }
+        Update: {
+          banner_url?: string | null
+          channel_id?: string | null
+          channel_name?: string
+          channel_url?: string
+          created_at?: string
+          id?: string
+          last_video_date?: string | null
+          notes?: string | null
+          subscriber_count?: number | null
+          thumbnail_url?: string | null
+          total_views?: number | null
+          updated_at?: string
+          upload_frequency?: string | null
+          user_id?: string
+          video_count?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
