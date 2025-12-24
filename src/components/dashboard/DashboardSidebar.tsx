@@ -145,15 +145,22 @@ const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
 
       {/* Collapse Toggle */}
       <button
-        onClick={onToggle}
-        className="absolute -right-3 top-20 w-6 h-6 bg-primary text-primary-foreground border-2 border-background rounded-full flex items-center justify-center hover:bg-primary/90 transition-all duration-300 ease-in-out shadow-md hover:scale-110 z-50"
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle();
+        }}
+        className="absolute -right-4 top-20 w-8 h-8 bg-primary text-primary-foreground border-2 border-background rounded-full flex items-center justify-center hover:bg-primary/90 transition-all duration-300 ease-in-out shadow-lg hover:scale-110 z-[60] cursor-pointer"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        {collapsed ? (
-          <ChevronRight className="w-3 h-3" />
-        ) : (
-          <ChevronLeft className="w-3 h-3" />
-        )}
+        <span className="transition-transform duration-300 ease-in-out flex items-center justify-center">
+          {collapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <ChevronLeft className="w-4 h-4" />
+          )}
+        </span>
       </button>
     </aside>
   );
