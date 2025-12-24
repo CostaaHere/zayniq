@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -304,8 +305,8 @@ const Videos = () => {
                     </span>
                   </div>
 
-                  <Button variant="outline" size="sm" className="w-full">
-                    Analyze
+                  <Button variant="outline" size="sm" className="w-full" asChild>
+                    <Link to={`/dashboard/videos/${video.id}`}>Analyze</Link>
                   </Button>
                 </div>
               </div>
@@ -367,8 +368,8 @@ const Videos = () => {
                   >
                     SEO: {video.seoScore}
                   </Badge>
-                  <Button variant="outline" size="sm">
-                    Analyze
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/dashboard/videos/${video.id}`}>Analyze</Link>
                   </Button>
                 </div>
               </div>

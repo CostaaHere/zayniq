@@ -12,6 +12,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Videos from "./pages/Videos";
+import VideoDetail from "./pages/VideoDetail";
 import Channel from "./pages/Channel";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
@@ -52,6 +53,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Videos />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/videos/:id"
+              element={
+                <ProtectedRoute>
+                  <VideoDetail />
                 </ProtectedRoute>
               }
             />
