@@ -1,6 +1,7 @@
 import { useState } from "react";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
+import MainContentWrapper from "@/components/layout/MainContentWrapper";
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
@@ -15,11 +16,16 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
   const handleSidebarToggle = () => setSidebarCollapsed((v) => !v);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
+    <div className="min-h-screen bg-background flex w-full">
+      {/* Desktop Sidebar - Fixed */}
+      <aside
+        className={cn(
+          "hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "w-[72px]" : "w-[260px]"
+        )}
+      >
         <DashboardSidebar collapsed={sidebarCollapsed} onToggle={handleSidebarToggle} />
-      </div>
+      </aside>
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
@@ -30,31 +36,37 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
       )}
 
       {/* Mobile Sidebar */}
-      <div
+      <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-300 ease-in-out",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <DashboardSidebar
-          collapsed={sidebarCollapsed}
+          collapsed={false}
           onToggle={handleSidebarToggle}
         />
-      </div>
+      </aside>
 
-      {/* Main Content */}
-      <main
+      {/* Main Content Area - Flex grow with margin for sidebar */}
+      <div
         className={cn(
-          "transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "lg:pl-[72px]" : "lg:pl-[260px]"
+          "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-[260px]"
         )}
       >
         <DashboardHeader
           title={title}
           onMobileMenuToggle={() => setMobileMenuOpen((v) => !v)}
         />
-        <div className="p-4 lg:p-6">{children}</div>
-      </main>
+        
+        {/* Content container with centered wrapper */}
+        <main className="flex-1 flex justify-center py-4 lg:py-6">
+          <MainContentWrapper>
+            {children}
+          </MainContentWrapper>
+        </main>
+      </div>
     </div>
   );
 };
