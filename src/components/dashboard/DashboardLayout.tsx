@@ -17,15 +17,13 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background flex w-full">
-      {/* Desktop Sidebar - Fixed */}
-      <aside
-        className={cn(
-          "hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "w-[72px]" : "w-[260px]"
-        )}
-      >
-        <DashboardSidebar collapsed={sidebarCollapsed} onToggle={handleSidebarToggle} />
-      </aside>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block">
+        <DashboardSidebar 
+          collapsed={sidebarCollapsed} 
+          onToggle={handleSidebarToggle} 
+        />
+      </div>
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
@@ -36,7 +34,7 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
       )}
 
       {/* Mobile Sidebar */}
-      <aside
+      <div
         className={cn(
           "fixed inset-y-0 left-0 z-50 lg:hidden transition-transform duration-300 ease-in-out",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
@@ -44,9 +42,9 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
       >
         <DashboardSidebar
           collapsed={false}
-          onToggle={handleSidebarToggle}
+          onToggle={() => setMobileMenuOpen(false)}
         />
-      </aside>
+      </div>
 
       {/* Main Content Area - Flex grow with margin for sidebar */}
       <div
