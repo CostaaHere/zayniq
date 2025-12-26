@@ -9,34 +9,42 @@ interface DashboardLayoutProps {
   title: string;
 }
 
-const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
+// Storage key must match the one in DashboardSidebar
+const SIDEBAR_STORAGE_KEY = "sidebarCollapsed";
 
 const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
+  // Read sidebar state to adjust main content margin
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    // Initialize from localStorage
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
-      return stored === "true";
-    }
-    return false;
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Persist sidebar state to localStorage
+  // Listen for localStorage changes to sync sidebar state
   useEffect(() => {
-    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
-  }, [sidebarCollapsed]);
+    const handleStorageChange = () => {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      setSidebarCollapsed(stored === "true");
+    };
 
-  const handleSidebarToggle = () => setSidebarCollapsed((v) => !v);
+    // Also poll for changes since storage events don't fire in same tab
+    const interval = setInterval(() => {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      setSidebarCollapsed(stored === "true");
+    }, 100);
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background flex w-full">
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - Self-contained with its own state */}
       <div className="hidden lg:block">
-        <DashboardSidebar 
-          collapsed={sidebarCollapsed} 
-          onToggle={handleSidebarToggle}
-        />
+        <DashboardSidebar />
       </div>
 
       {/* Mobile Sidebar Overlay */}
@@ -55,29 +63,24 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <DashboardSidebar 
-          collapsed={false} 
-          onToggle={() => setMobileMenuOpen(false)}
-        />
+        <DashboardSidebar />
       </div>
 
-      {/* Main Content Area - Flex grow with margin for sidebar */}
+      {/* Main Content Area */}
       <div
         className={cn(
           "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-[260px]"
+          sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         )}
       >
         <DashboardHeader
           title={title}
           onMobileMenuToggle={() => setMobileMenuOpen((v) => !v)}
         />
-        
+
         {/* Content container with centered wrapper */}
         <main className="flex-1 flex justify-center py-4 lg:py-6">
-          <MainContentWrapper>
-            {children}
-          </MainContentWrapper>
+          <MainContentWrapper>{children}</MainContentWrapper>
         </main>
       </div>
     </div>
