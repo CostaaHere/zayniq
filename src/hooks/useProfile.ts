@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { logger } from "@/lib/logger";
 
 export interface Profile {
   id: string;
@@ -40,9 +41,18 @@ export const useProfile = () => {
         .maybeSingle();
 
       if (error) throw error;
+      
+      // If profile has avatar_url stored, generate a fresh signed URL
+      if (data?.avatar_url) {
+        const signedUrl = await getSignedAvatarUrl(data.avatar_url);
+        if (signedUrl) {
+          data.avatar_url = signedUrl;
+        }
+      }
+      
       setProfile(data as Profile);
-    } catch (error: any) {
-      console.error("Error fetching profile:", error);
+    } catch (error) {
+      logger.error("Error fetching profile:", error);
       toast({
         title: "Error",
         description: "Failed to load profile",
@@ -50,6 +60,35 @@ export const useProfile = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getSignedAvatarUrl = async (storedPath: string): Promise<string | null> => {
+    try {
+      // Extract the file path from the stored URL or path
+      let filePath = storedPath;
+      
+      // If it's a full URL, extract the path portion
+      if (storedPath.includes('/avatars/')) {
+        const match = storedPath.match(/avatars\/(.+?)(?:\?|$)/);
+        if (match) {
+          filePath = match[1];
+        }
+      }
+      
+      const { data, error } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
+      
+      if (error) {
+        logger.error("Error creating signed URL:", error);
+        return null;
+      }
+      
+      return data.signedUrl;
+    } catch (error) {
+      logger.error("Error in getSignedAvatarUrl:", error);
+      return null;
     }
   };
 
@@ -66,9 +105,9 @@ export const useProfile = () => {
       
       setProfile((prev) => prev ? { ...prev, ...updates } : null);
       return { error: null };
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      return { error };
+    } catch (error) {
+      logger.error("Error updating profile:", error);
+      return { error: error as Error };
     }
   };
 
@@ -85,19 +124,22 @@ export const useProfile = () => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Create a signed URL for the uploaded avatar
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from("avatars")
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 3600); // 1 hour expiry
+      
+      if (signedUrlError) throw signedUrlError;
 
-      // Add cache-busting query param
-      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+      // Store the file path (not the signed URL) in the database
+      // The signed URL will be generated fresh when loading the profile
+      const storagePath = `${user.id}/avatar.${fileExt}`;
+      await updateProfile({ avatar_url: storagePath });
       
-      await updateProfile({ avatar_url: avatarUrl });
-      
-      return { url: avatarUrl, error: null };
-    } catch (error: any) {
-      console.error("Error uploading avatar:", error);
-      return { url: null, error };
+      return { url: signedUrlData.signedUrl, error: null };
+    } catch (error) {
+      logger.error("Error uploading avatar:", error);
+      return { url: null, error: error as Error };
     }
   };
 
@@ -111,5 +153,6 @@ export const useProfile = () => {
     updateProfile,
     uploadAvatar,
     refetch: fetchProfile,
+    getSignedAvatarUrl,
   };
 };
