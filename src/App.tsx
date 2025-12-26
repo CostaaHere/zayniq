@@ -20,6 +20,7 @@ import Competitors from "./pages/Competitors";
 import AITools from "./pages/AITools";
 import TitleGenerator from "./pages/TitleGenerator";
 import DescriptionGenerator from "./pages/DescriptionGenerator";
+import TagsGenerator from "./pages/TagsGenerator";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
@@ -115,6 +116,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <DescriptionGenerator />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/ai-tools/tags"
+              element={
+                <ProtectedRoute>
+                  <TagsGenerator />
                 </ProtectedRoute>
               }
             />
