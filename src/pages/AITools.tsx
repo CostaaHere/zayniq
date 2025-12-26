@@ -53,7 +53,7 @@ const aiTools = [
     path: "/dashboard/ai-tools/thumbnails",
     gradient: "from-orange-500 to-red-500",
     features: ["Text suggestions", "Color palettes", "Layout ideas"],
-    comingSoon: true,
+    isNew: true,
   },
   {
     id: "ideas",
