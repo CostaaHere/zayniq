@@ -302,11 +302,20 @@ const TitleGenerator = () => {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="flex flex-col items-center justify-center py-16">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 animate-pulse">
-                      <Sparkles className="w-8 h-8 text-primary" />
-                    </div>
-                    <p className="text-muted-foreground">Generating creative titles...</p>
+                  <div className="space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="p-4 rounded-xl bg-muted/30 border border-border animate-pulse">
+                        <div className="h-6 w-full bg-muted/50 rounded mb-3" />
+                        <div className="flex gap-2 mb-3">
+                          <div className="h-5 w-16 bg-muted/50 rounded-full" />
+                          <div className="h-5 w-20 bg-muted/50 rounded-full" />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="h-8 w-16 bg-muted/50 rounded" />
+                          <div className="h-8 w-20 bg-muted/50 rounded" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : titles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">

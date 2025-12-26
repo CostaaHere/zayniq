@@ -393,6 +393,27 @@ export default function TagsGenerator() {
                     Regenerate Tags
                   </Button>
                 </>
+              ) : isLoading ? (
+                <div className="space-y-6">
+                  {/* Skeleton for character limit */}
+                  <div className="h-2 bg-muted/50 rounded-full animate-pulse" />
+                  
+                  {/* Skeleton for tag sections */}
+                  {['Broad Tags', 'Specific Tags', 'Long-tail Tags'].map((label) => (
+                    <div key={label} className="space-y-2">
+                      <div className="h-4 w-24 bg-muted/50 rounded animate-pulse" />
+                      <div className="flex flex-wrap gap-2">
+                        {[...Array(5)].map((_, i) => (
+                          <div 
+                            key={i} 
+                            className="h-8 bg-muted/50 rounded-full animate-pulse"
+                            style={{ width: `${60 + Math.random() * 60}px` }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-20" />

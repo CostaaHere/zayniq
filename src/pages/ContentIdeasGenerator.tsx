@@ -662,6 +662,35 @@ export default function ContentIdeasGenerator() {
                   </div>
                 )}
 
+                {isLoading && (
+                  <div className="grid gap-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Card key={i} className="overflow-hidden animate-pulse">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <div className="h-5 w-3/4 bg-muted/50 rounded" />
+                              <div className="h-4 w-full bg-muted/50 rounded" />
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <div className="h-6 w-12 bg-muted/50 rounded" />
+                              <div className="h-5 w-16 bg-muted/50 rounded-full" />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 mt-3">
+                            <div className="h-5 w-20 bg-muted/50 rounded-full" />
+                            <div className="h-5 w-16 bg-muted/50 rounded-full" />
+                          </div>
+                        </CardHeader>
+                        <div className="px-6 pb-4 flex gap-2">
+                          <div className="h-8 w-16 bg-muted/50 rounded" />
+                          <div className="h-8 w-16 bg-muted/50 rounded" />
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
                 {!isLoading && ideas.length === 0 && (
                   <Card className="border-dashed">
                     <CardContent className="py-12 text-center">
