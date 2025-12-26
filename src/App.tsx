@@ -21,6 +21,7 @@ import AITools from "./pages/AITools";
 import TitleGenerator from "./pages/TitleGenerator";
 import DescriptionGenerator from "./pages/DescriptionGenerator";
 import TagsGenerator from "./pages/TagsGenerator";
+import ThumbnailGenerator from "./pages/ThumbnailGenerator";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
@@ -124,6 +125,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <TagsGenerator />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/ai-tools/thumbnails"
+              element={
+                <ProtectedRoute>
+                  <ThumbnailGenerator />
                 </ProtectedRoute>
               }
             />
