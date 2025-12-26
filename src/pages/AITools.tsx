@@ -42,8 +42,8 @@ const aiTools = [
     icon: Hash,
     path: "/dashboard/ai-tools/tags",
     gradient: "from-purple-500 to-pink-500",
-    features: ["Trending tags", "Competitor analysis", "Relevance score"],
-    comingSoon: true,
+    features: ["Broad & specific tags", "Drag to reorder", "500 char limit"],
+    isNew: true,
   },
   {
     id: "thumbnails",
