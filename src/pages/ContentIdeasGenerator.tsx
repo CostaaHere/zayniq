@@ -32,6 +32,7 @@ import {
   Trash2,
   RefreshCw,
   Save,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,6 +89,7 @@ const CONTENT_STYLES = [
 export default function ContentIdeasGenerator() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('generate');
+  const [customTopic, setCustomTopic] = useState('');
   const [niche, setNiche] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [contentStyles, setContentStyles] = useState<string[]>([]);
@@ -144,8 +146,9 @@ export default function ContentIdeasGenerator() {
   };
 
   const handleGenerate = async () => {
-    if (!niche) {
-      toast.error('Please select a niche');
+    const topic = customTopic.trim() || niche;
+    if (!topic) {
+      toast.error('Please enter a topic or select a niche');
       return;
     }
 
@@ -154,7 +157,8 @@ export default function ContentIdeasGenerator() {
     try {
       const { data, error } = await supabase.functions.invoke('generate-content-ideas', {
         body: {
-          niche,
+          topic: customTopic.trim() || undefined,
+          niche: customTopic.trim() ? undefined : niche,
           targetAudience,
           contentStyles,
           includeTrending,
@@ -190,7 +194,7 @@ export default function ContentIdeasGenerator() {
         key_points: idea.keyPoints,
         thumbnail_concept: idea.thumbnailConcept,
         best_posting_time: idea.bestPostingTime,
-        niche: niche,
+        niche: customTopic.trim() || niche || idea.niche,
       });
 
       if (error) throw error;
@@ -239,6 +243,7 @@ export default function ContentIdeasGenerator() {
     if (!user || ideas.length === 0) return;
     setIsLoading(true);
     try {
+      const currentTopic = customTopic.trim() || niche;
       const inserts = ideas.map((idea) => ({
         user_id: user.id,
         title: idea.title,
@@ -249,7 +254,7 @@ export default function ContentIdeasGenerator() {
         key_points: idea.keyPoints,
         thumbnail_concept: idea.thumbnailConcept,
         best_posting_time: idea.bestPostingTime,
-        niche: niche,
+        niche: currentTopic || idea.niche,
       }));
 
       const { error } = await supabase.from('saved_content_ideas').insert(inserts);
@@ -517,12 +522,32 @@ export default function ContentIdeasGenerator() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {/* Smart Topic Search Bar */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Search className="h-4 w-4 text-primary" />
+                        Content Topic
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          placeholder="e.g. Free Fire gameplay, AI tools for YouTube, Travel Pakistan vlogs..."
+                          value={customTopic}
+                          onChange={(e) => setCustomTopic(e.target.value)}
+                          className="pl-10 h-12 text-base bg-background/50 border-primary/20 focus:border-primary/50 transition-all"
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Type any topic freely, or select a niche below as fallback
+                      </p>
+                    </div>
+
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Niche *</Label>
-                        <Select value={niche} onValueChange={setNiche}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select your niche" />
+                        <Label className="text-muted-foreground">Niche (optional)</Label>
+                        <Select value={niche} onValueChange={setNiche} disabled={!!customTopic.trim()}>
+                          <SelectTrigger className={customTopic.trim() ? 'opacity-50' : ''}>
+                            <SelectValue placeholder="Select a niche as fallback" />
                           </SelectTrigger>
                           <SelectContent>
                             {NICHES.map((n) => (
@@ -597,8 +622,8 @@ export default function ContentIdeasGenerator() {
 
                     <Button
                       onClick={handleGenerate}
-                      disabled={isLoading || !niche}
-                      className="w-full"
+                      disabled={isLoading || (!customTopic.trim() && !niche)}
+                      className="w-full h-12 text-base font-semibold"
                     >
                       {isLoading ? (
                         <>
