@@ -99,6 +99,11 @@
     animation: fade-up 0.8s ease-out 0.3s forwards;
     opacity: 0;
   }
+
+  /* Skeleton loading animation */
+  .animate-skeleton {
+    animation: skeleton-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }
 
 @keyframes float {
@@ -119,5 +124,14 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
   }
 }

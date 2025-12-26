@@ -307,11 +307,15 @@ const DescriptionGenerator = () => {
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <div className="flex flex-col items-center justify-center py-16">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 animate-pulse">
-                      <Sparkles className="w-8 h-8 text-primary" />
-                    </div>
-                    <p className="text-muted-foreground">Crafting your description...</p>
+                  <div className="space-y-3 animate-pulse">
+                    <div className="h-4 w-full bg-muted/50 rounded" />
+                    <div className="h-4 w-5/6 bg-muted/50 rounded" />
+                    <div className="h-4 w-full bg-muted/50 rounded" />
+                    <div className="h-4 w-4/5 bg-muted/50 rounded" />
+                    <div className="h-4 w-full bg-muted/50 rounded" />
+                    <div className="h-4 w-3/4 bg-muted/50 rounded" />
+                    <div className="h-4 w-full bg-muted/50 rounded" />
+                    <div className="h-4 w-5/6 bg-muted/50 rounded" />
                   </div>
                 ) : result ? (
                   <Textarea
