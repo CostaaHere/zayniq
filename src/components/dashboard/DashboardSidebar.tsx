@@ -40,12 +40,13 @@ const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
   const isFreeTier = profile?.subscription_tier === "free";
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 h-full bg-card border-r border-border flex flex-col transition-all duration-300 z-40",
-        collapsed ? "w-[72px]" : "w-[260px]"
-      )}
-    >
+    <>
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-full bg-card border-r border-border flex flex-col transition-all duration-300 z-40",
+          collapsed ? "w-[72px]" : "w-[260px]"
+        )}
+      >
       {/* Logo */}
       <div className="flex items-center gap-3 p-4 border-b border-border">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
@@ -142,27 +143,25 @@ const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
           {!collapsed && <span>Sign Out</span>}
         </Button>
       </div>
+      </aside>
 
-      {/* Collapse Toggle */}
+      {/* Collapse Toggle - Outside aside to avoid clipping */}
       <button
         type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggle();
-        }}
-        className="absolute -right-4 top-20 w-8 h-8 bg-primary text-primary-foreground border-2 border-background rounded-full flex items-center justify-center hover:bg-primary/90 transition-all duration-300 ease-in-out shadow-lg hover:scale-110 z-[60] cursor-pointer"
+        onClick={onToggle}
+        className={cn(
+          "fixed top-20 w-8 h-8 bg-primary text-primary-foreground border-2 border-background rounded-full flex items-center justify-center hover:bg-primary/90 transition-all duration-300 ease-in-out shadow-lg hover:scale-110 z-50 cursor-pointer",
+          collapsed ? "left-[56px]" : "left-[244px]"
+        )}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <span className="transition-transform duration-300 ease-in-out flex items-center justify-center">
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <ChevronLeft className="w-4 h-4" />
-          )}
-        </span>
+        {collapsed ? (
+          <ChevronRight className="w-4 h-4" />
+        ) : (
+          <ChevronLeft className="w-4 h-4" />
+        )}
       </button>
-    </aside>
+    </>
   );
 };
 
