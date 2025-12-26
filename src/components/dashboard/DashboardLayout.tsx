@@ -1,18 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
 import MainContentWrapper from "@/components/layout/MainContentWrapper";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   title: string;
 }
 
+const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
+
 const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    // Initialize from localStorage
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      return stored === "true";
+    }
+    return false;
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Persist sidebar state to localStorage
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   const handleSidebarToggle = () => setSidebarCollapsed((v) => !v);
 
@@ -20,33 +33,20 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
     <div className="min-h-screen bg-background flex w-full">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
-        <DashboardSidebar collapsed={sidebarCollapsed} />
+        <DashboardSidebar 
+          collapsed={sidebarCollapsed} 
+          onToggle={handleSidebarToggle}
+        />
       </div>
 
-      {/* Desktop collapse toggle (always clickable) */}
-      <button
-        type="button"
-        onClick={handleSidebarToggle}
-        className={cn(
-          "hidden lg:flex fixed top-20 w-8 h-8 bg-primary text-primary-foreground border-2 border-background rounded-full items-center justify-center hover:bg-primary/90 transition-all duration-300 ease-in-out shadow-lg hover:scale-110 z-50",
-          sidebarCollapsed ? "left-[56px]" : "left-[244px]"
-        )}
-        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {sidebarCollapsed ? (
-          <ChevronRight className="w-4 h-4" />
-        ) : (
-          <ChevronLeft className="w-4 h-4" />
-        )}
-      </button>
-
       {/* Mobile Sidebar Overlay */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+      <div
+        className={cn(
+          "fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300",
+          mobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setMobileMenuOpen(false)}
+      />
 
       {/* Mobile Sidebar */}
       <div
@@ -55,7 +55,10 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <DashboardSidebar collapsed={false} />
+        <DashboardSidebar 
+          collapsed={false} 
+          onToggle={() => setMobileMenuOpen(false)}
+        />
       </div>
 
       {/* Main Content Area - Flex grow with margin for sidebar */}
