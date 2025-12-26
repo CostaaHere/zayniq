@@ -80,49 +80,52 @@ const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
   };
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 h-full bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out z-40",
-        collapsed ? "w-[72px]" : "w-[260px]"
-      )}
-    >
-      {/* Logo + Toggle */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-            <span className="text-xl font-bold text-primary-foreground">Z</span>
-          </div>
-          {!collapsed && (
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
-              ZainIQ
-            </span>
+    <>
+      {/* Toggle Button - Always visible outside sidebar */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle();
+        }}
+        className={cn(
+          "fixed z-50 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
+          "bg-[#252542] hover:bg-[#2D2D4A] border border-[#2D2D4A]",
+          "text-muted-foreground hover:text-foreground shadow-lg",
+          collapsed ? "left-[56px]" : "left-[244px]",
+          "top-6"
+        )}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        <div className="transition-transform duration-300">
+          {collapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <ChevronLeft className="w-4 h-4" />
           )}
         </div>
-        
-        {/* Toggle Button */}
-        <button
-          type="button"
-          onClick={onToggle}
-          className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
-            "bg-[#252542] hover:bg-[#2D2D4A] border border-[#2D2D4A]",
-            "text-muted-foreground hover:text-foreground",
-            collapsed && "absolute -right-4 top-6 z-50 shadow-lg"
-          )}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <div className={cn(
-            "transition-transform duration-300",
-            collapsed ? "rotate-0" : "rotate-0"
-          )}>
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <ChevronLeft className="w-4 h-4" />
+      </button>
+
+      <aside
+        className={cn(
+          "fixed left-0 top-0 h-full bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out z-40",
+          collapsed ? "w-[72px]" : "w-[260px]"
+        )}
+      >
+        {/* Logo */}
+        <div className="flex items-center p-4 border-b border-border">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
+              <span className="text-xl font-bold text-primary-foreground">Z</span>
+            </div>
+            {!collapsed && (
+              <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
+                ZainIQ
+              </span>
             )}
           </div>
-        </button>
-      </div>
+        </div>
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
@@ -240,6 +243,7 @@ const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
         )}
       </div>
     </aside>
+    </>
   );
 };
 
