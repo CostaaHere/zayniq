@@ -12,6 +12,29 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid authentication" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { topic, niche } = await req.json();
     
     if (!topic || topic.trim().length === 0) {
@@ -61,7 +84,7 @@ ${niche ? `Niche/Category: ${niche}` : ""}
 
 Provide diverse, actionable keywords that a YouTube creator could use for video titles, descriptions, and tags.`;
 
-    console.log("Calling Lovable AI Gateway for keyword generation...");
+    console.log("Calling Lovable AI Gateway for user:", user.id);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -80,8 +103,7 @@ Provide diverse, actionable keywords that a YouTube creator could use for video 
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error("AI Gateway error:", response.status);
       
       if (response.status === 429) {
         return new Response(
@@ -106,8 +128,6 @@ Provide diverse, actionable keywords that a YouTube creator could use for video 
       throw new Error("No response from AI");
     }
 
-    console.log("Raw AI response:", content);
-
     // Parse JSON from response (handle markdown code blocks)
     let keywords;
     try {
@@ -117,46 +137,36 @@ Provide diverse, actionable keywords that a YouTube creator could use for video 
       const jsonStr = jsonMatch[1] || content;
       keywords = JSON.parse(jsonStr.trim());
     } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
+      console.error("Failed to parse AI response");
       throw new Error("Failed to parse keyword suggestions");
     }
 
-    // Save to database
-    const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        
-        // Get user from JWT
-        const token = authHeader.replace("Bearer ", "");
-        const { data: { user } } = await supabase.auth.getUser(token);
-        
-        if (user) {
-          const { error: insertError } = await supabase
-            .from("ai_generations")
-            .insert({
-              user_id: user.id,
-              generation_type: "keywords",
-              input_topic: topic,
-              input_niche: niche,
-              primary_keywords: keywords.primary_keywords || [],
-              longtail_keywords: keywords.longtail_keywords || [],
-              question_keywords: keywords.question_keywords || [],
-              trending_topics: keywords.trending_topics || [],
-            });
-          
-          if (insertError) {
-            console.error("Failed to save generation:", insertError);
-          } else {
-            console.log("Generation saved successfully");
-          }
-        }
-      } catch (dbError) {
-        console.error("Database error:", dbError);
-        // Continue anyway - don't fail the request
+    // Save to database using service role
+    try {
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
+      
+      const { error: insertError } = await adminSupabase
+        .from("ai_generations")
+        .insert({
+          user_id: user.id,
+          generation_type: "keywords",
+          input_topic: topic,
+          input_niche: niche,
+          primary_keywords: keywords.primary_keywords || [],
+          longtail_keywords: keywords.longtail_keywords || [],
+          question_keywords: keywords.question_keywords || [],
+          trending_topics: keywords.trending_topics || [],
+        });
+      
+      if (insertError) {
+        console.error("Failed to save generation");
+      } else {
+        console.log("Generation saved successfully");
       }
+    } catch (dbError) {
+      console.error("Database error");
+      // Continue anyway - don't fail the request
     }
 
     return new Response(JSON.stringify(keywords), {
@@ -164,7 +174,7 @@ Provide diverse, actionable keywords that a YouTube creator could use for video 
     });
 
   } catch (error) {
-    console.error("Error in generate-keywords:", error);
+    console.error("Error in generate-keywords");
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
