@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 
 interface GeneratedTitle {
   title: string;
@@ -74,7 +75,7 @@ const TitleGenerator = () => {
       setTitles(data.titles || []);
       toast.success("Generated 10 title options!");
     } catch (err) {
-      console.error("Error generating titles:", err);
+      logger.error("Error generating titles:", err);
       toast.error("Failed to generate titles. Please try again.");
     } finally {
       setIsLoading(false);
@@ -104,19 +105,43 @@ const TitleGenerator = () => {
     }
   };
 
-  const highlightPowerWords = (title: string, powerWords: string[]) => {
-    let result = title;
+  const renderHighlightedTitle = (title: string, powerWords: string[]): React.ReactNode => {
     const allPowerWords = [...powerWords, ...POWER_WORDS];
     
-    allPowerWords.forEach((word) => {
-      const regex = new RegExp(`\\b(${word})\\b`, "gi");
-      result = result.replace(
-        regex,
-        '<span class="text-primary font-semibold">$1</span>'
-      );
-    });
+    // Escape special regex characters in power words
+    const escapedWords = allPowerWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const pattern = new RegExp(`\\b(${escapedWords.join('|')})\\b`, 'gi');
     
-    return result;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+    
+    // Reset regex state
+    pattern.lastIndex = 0;
+    
+    // Create a copy of the string to work with
+    const titleCopy = title;
+    
+    while ((match = pattern.exec(titleCopy)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(titleCopy.substring(lastIndex, match.index));
+      }
+      // Add the highlighted match
+      parts.push(
+        <span key={match.index} className="text-primary font-semibold">
+          {match[0]}
+        </span>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text after last match
+    if (lastIndex < titleCopy.length) {
+      parts.push(titleCopy.substring(lastIndex));
+    }
+    
+    return parts.length > 0 ? <>{parts}</> : title;
   };
 
   const getKeywordIndicator = (title: string) => {
@@ -307,12 +332,9 @@ const TitleGenerator = () => {
                           className="p-4 rounded-xl bg-muted/30 border border-border hover:border-primary/30 transition-colors"
                         >
                           {/* Title with power words highlighted */}
-                          <p
-                            className="font-medium text-lg mb-3"
-                            dangerouslySetInnerHTML={{
-                              __html: highlightPowerWords(item.title, item.powerWords || []),
-                            }}
-                          />
+                          <p className="font-medium text-lg mb-3">
+                            {renderHighlightedTitle(item.title, item.powerWords || [])}
+                          </p>
 
                           {/* Meta info */}
                           <div className="flex flex-wrap items-center gap-2 mb-3">

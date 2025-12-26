@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,29 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid authentication" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { title, summary, keyPoints, links, includeTimestamps } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
@@ -18,7 +42,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating description for title:", title);
+    console.log("Generating description for user:", user.id, "title:", title);
 
     const systemPrompt = `You are a YouTube description expert. Generate an optimized video description that maximizes engagement and SEO.
 
@@ -64,8 +88,7 @@ ${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("AI gateway error:", response.status);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
@@ -80,18 +103,15 @@ ${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"
         });
       }
       
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error("AI service temporarily unavailable");
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-    
-    console.log("AI response content:", content);
 
     // Parse the JSON response
     let result;
     try {
-      // Extract JSON from potential markdown code blocks
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         result = JSON.parse(jsonMatch[0]);
@@ -99,7 +119,7 @@ ${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"
         throw new Error("No valid JSON object found in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse description:", parseError);
+      console.error("Failed to parse description");
       throw new Error("Failed to parse AI response");
     }
 
@@ -107,7 +127,7 @@ ${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in generate-description:", error);
+    console.error("Error in generate-description");
     const errorMessage = error instanceof Error ? error.message : "Failed to generate description";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,

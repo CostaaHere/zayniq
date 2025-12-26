@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,29 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid authentication" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { topic, keyword, tone, includeEmoji } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
@@ -18,7 +42,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating titles for topic:", topic, "tone:", tone);
+    console.log("Generating titles for user:", user.id, "topic:", topic);
 
     const systemPrompt = `You are a YouTube title expert. Generate exactly 10 engaging, click-worthy video titles.
 
@@ -61,7 +85,7 @@ ${includeEmoji ? "Include emojis" : "No emojis"}`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("AI gateway error:", response.status);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
@@ -76,18 +100,15 @@ ${includeEmoji ? "Include emojis" : "No emojis"}`;
         });
       }
       
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error("AI service temporarily unavailable");
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-    
-    console.log("AI response content:", content);
 
     // Parse the JSON response
     let titles;
     try {
-      // Extract JSON from potential markdown code blocks
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         titles = JSON.parse(jsonMatch[0]);
@@ -95,7 +116,7 @@ ${includeEmoji ? "Include emojis" : "No emojis"}`;
         throw new Error("No valid JSON array found in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse titles:", parseError);
+      console.error("Failed to parse titles");
       throw new Error("Failed to parse AI response");
     }
 
@@ -103,7 +124,7 @@ ${includeEmoji ? "Include emojis" : "No emojis"}`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in generate-titles:", error);
+    console.error("Error in generate-titles");
     const errorMessage = error instanceof Error ? error.message : "Failed to generate titles";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
