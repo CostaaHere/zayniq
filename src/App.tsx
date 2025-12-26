@@ -23,6 +23,7 @@ import DescriptionGenerator from "./pages/DescriptionGenerator";
 import TagsGenerator from "./pages/TagsGenerator";
 import ThumbnailGenerator from "./pages/ThumbnailGenerator";
 import ContentIdeasGenerator from "./pages/ContentIdeasGenerator";
+import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
@@ -142,6 +143,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ContentIdeasGenerator />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
                 </ProtectedRoute>
               }
             />
