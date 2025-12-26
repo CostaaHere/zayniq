@@ -205,6 +205,57 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_content_ideas: {
+        Row: {
+          best_posting_time: string | null
+          content_type: string | null
+          created_at: string
+          description: string | null
+          difficulty: string | null
+          id: string
+          key_points: Json | null
+          niche: string | null
+          scheduled_date: string | null
+          thumbnail_concept: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          viral_score: number | null
+        }
+        Insert: {
+          best_posting_time?: string | null
+          content_type?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          key_points?: Json | null
+          niche?: string | null
+          scheduled_date?: string | null
+          thumbnail_concept?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          viral_score?: number | null
+        }
+        Update: {
+          best_posting_time?: string | null
+          content_type?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          key_points?: Json | null
+          niche?: string | null
+          scheduled_date?: string | null
+          thumbnail_concept?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          viral_score?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

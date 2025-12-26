@@ -60,10 +60,10 @@ const aiTools = [
     title: "Content Ideas",
     description: "Discover trending topics and video ideas for your niche",
     icon: Lightbulb,
-    path: "/dashboard/ai-tools/ideas",
+    path: "/dashboard/ai-tools/content-ideas",
     gradient: "from-yellow-500 to-orange-500",
-    features: ["Niche analysis", "Trend detection", "Gap finder"],
-    comingSoon: true,
+    features: ["Niche analysis", "Trend detection", "Save & schedule"],
+    isNew: true,
   },
   {
     id: "analytics",
