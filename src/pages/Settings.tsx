@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -18,6 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   User,
   Link2,
@@ -29,9 +40,19 @@ import {
   Download,
   Trash2,
   ExternalLink,
+  Bell,
+  CreditCard,
+  Crown,
+  Sparkles,
+  Users,
+  Search,
+  FileText,
+  Check,
 } from "lucide-react";
 import AvatarCropper from "@/components/settings/AvatarCropper";
 import DeleteAccountModal from "@/components/settings/DeleteAccountModal";
+import UpgradeModal from "@/components/settings/UpgradeModal";
+import CancelSubscriptionModal from "@/components/settings/CancelSubscriptionModal";
 
 const nicheOptions = [
   "Gaming",
@@ -62,6 +83,13 @@ const experienceLevels = [
   { value: "expert", label: "Expert (5+ years)" },
 ];
 
+// Mock billing history
+const billingHistory = [
+  { date: "2024-12-01", amount: "$19.00", status: "Paid", invoice: "#INV-001" },
+  { date: "2024-11-01", amount: "$19.00", status: "Paid", invoice: "#INV-002" },
+  { date: "2024-10-01", amount: "$19.00", status: "Paid", invoice: "#INV-003" },
+];
+
 const Settings = () => {
   const { user, signOut } = useAuth();
   const { profile, loading, updateProfile, uploadAvatar, refetch } = useProfile();
@@ -69,28 +97,51 @@ const Settings = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
-  const [fullName, setFullName] = useState(profile?.full_name || "");
-  const [channelNiche, setChannelNiche] = useState(profile?.channel_niche || "");
-  const [experienceLevel, setExperienceLevel] = useState(profile?.experience_level || "");
+  const [fullName, setFullName] = useState("");
+  const [channelNiche, setChannelNiche] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
   const [bio, setBio] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+
+  // Notification preferences
+  const [notifications, setNotifications] = useState({
+    weeklyReport: true,
+    competitorAlerts: true,
+    newFeatures: true,
+    tipsAndPractices: false,
+    pushNotifications: false,
+  });
 
   // Avatar cropper state
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  // Delete modal state
+  // Modal states
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+
+  // Usage stats (mock data - would come from API)
+  const [usageStats, setUsageStats] = useState({
+    aiGenerations: { used: 3, limit: 5 },
+    keywordSearches: { used: 7, limit: 10 },
+    channelsConnected: { used: 1, limit: 1 },
+    competitorsTracked: { used: 2, limit: 3 },
+  });
 
   // Sync form state when profile loads
-  useState(() => {
+  useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || "");
       setChannelNiche(profile.channel_niche || "");
       setExperienceLevel(profile.experience_level || "");
     }
-  });
+  }, [profile]);
+
+  const isFreeTier = profile?.subscription_tier === "free";
+  const currentPlan = profile?.subscription_tier || "free";
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -106,7 +157,6 @@ const Settings = () => {
       };
       reader.readAsDataURL(file);
     }
-    // Reset input
     e.target.value = "";
   };
 
@@ -154,10 +204,20 @@ const Settings = () => {
     }
   };
 
+  const handleSaveNotifications = async () => {
+    setIsSavingNotifications(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    toast({
+      title: "Success",
+      description: "Notification preferences saved",
+    });
+    setIsSavingNotifications(false);
+  };
+
   const handleExportData = async () => {
     setIsExporting(true);
     try {
-      // Fetch all user data
       const [profileData, channelsData, videosData, competitorsData] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user?.id).single(),
         supabase.from("channels").select("*").eq("user_id", user?.id),
@@ -173,7 +233,6 @@ const Settings = () => {
         competitors: competitorsData.data,
       };
 
-      // Download as JSON
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: "application/json",
       });
@@ -203,7 +262,6 @@ const Settings = () => {
 
   const handleDeleteAccount = async () => {
     try {
-      // Sign out and delete (actual deletion would require a backend function)
       await signOut();
       toast({
         title: "Account deletion requested",
@@ -216,6 +274,26 @@ const Settings = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleCancelSubscription = async (reason: string, feedback: string) => {
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    toast({
+      title: "Subscription Cancelled",
+      description: "Your subscription will remain active until the end of your billing period",
+    });
+  };
+
+  const getUsagePercentage = (used: number, limit: number) => {
+    return Math.min((used / limit) * 100, 100);
+  };
+
+  const getUsageColor = (used: number, limit: number) => {
+    const percentage = (used / limit) * 100;
+    if (percentage >= 100) return "text-destructive";
+    if (percentage >= 80) return "text-yellow-500";
+    return "text-accent";
   };
 
   if (loading) {
@@ -241,14 +319,22 @@ const Settings = () => {
 
         {/* Settings Tabs */}
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="bg-card border border-border">
+          <TabsList className="bg-card border border-border flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="profile" className="gap-2">
               <User className="w-4 h-4" />
               Profile
             </TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-2">
+              <Bell className="w-4 h-4" />
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger value="subscription" className="gap-2">
+              <CreditCard className="w-4 h-4" />
+              Subscription
+            </TabsTrigger>
             <TabsTrigger value="connections" className="gap-2">
               <Link2 className="w-4 h-4" />
-              Connected Accounts
+              Connections
             </TabsTrigger>
             <TabsTrigger value="danger" className="gap-2">
               <AlertTriangle className="w-4 h-4" />
@@ -405,6 +491,367 @@ const Settings = () => {
             </Card>
           </TabsContent>
 
+          {/* Notifications Tab */}
+          <TabsContent value="notifications" className="space-y-6">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle>Email Notifications</CardTitle>
+                <CardDescription>
+                  Choose what emails you'd like to receive
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-foreground">Weekly Performance Report</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Get a summary of your channel's performance every week
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifications.weeklyReport}
+                    onCheckedChange={(checked) =>
+                      setNotifications({ ...notifications, weeklyReport: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-accent" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-foreground">Competitor Alerts</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Get notified when competitors post new videos
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifications.competitorAlerts}
+                    onCheckedChange={(checked) =>
+                      setNotifications({ ...notifications, competitorAlerts: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-yellow-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-foreground">New Feature Announcements</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Be the first to know about new features and updates
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifications.newFeatures}
+                    onCheckedChange={(checked) =>
+                      setNotifications({ ...notifications, newFeatures: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                      <Check className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-foreground">Tips & Best Practices</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Receive tips to help grow your channel
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifications.tipsAndPractices}
+                    onCheckedChange={(checked) =>
+                      setNotifications({ ...notifications, tipsAndPractices: checked })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle>Push Notifications</CardTitle>
+                <CardDescription>
+                  Receive notifications in your browser
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Bell className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-foreground">Browser Push Notifications</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Get real-time alerts in your browser
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notifications.pushNotifications}
+                    onCheckedChange={(checked) =>
+                      setNotifications({ ...notifications, pushNotifications: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex justify-end mt-6">
+                  <Button onClick={handleSaveNotifications} disabled={isSavingNotifications}>
+                    {isSavingNotifications ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Preferences"
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Subscription Tab */}
+          <TabsContent value="subscription" className="space-y-6">
+            {/* Current Plan */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      Current Plan
+                      <Badge
+                        className={
+                          isFreeTier
+                            ? "bg-muted text-muted-foreground"
+                            : "bg-primary/10 text-primary border-primary/20"
+                        }
+                      >
+                        {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      {isFreeTier
+                        ? "You're on the free plan with limited features"
+                        : "You have access to premium features"}
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => setUpgradeModalOpen(true)}>
+                    <Crown className="w-4 h-4 mr-2" />
+                    {isFreeTier ? "Upgrade Plan" : "Manage Plan"}
+                  </Button>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Usage Stats */}
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle>Usage This Period</CardTitle>
+                <CardDescription>
+                  Track your usage across different features
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">AI Generations</span>
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${getUsageColor(
+                          usageStats.aiGenerations.used,
+                          usageStats.aiGenerations.limit
+                        )}`}
+                      >
+                        {usageStats.aiGenerations.used}/{usageStats.aiGenerations.limit}
+                      </span>
+                    </div>
+                    <Progress
+                      value={getUsagePercentage(
+                        usageStats.aiGenerations.used,
+                        usageStats.aiGenerations.limit
+                      )}
+                      className="h-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">Resets daily</p>
+                  </div>
+
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Search className="w-4 h-4 text-accent" />
+                        <span className="text-sm font-medium">Keyword Searches</span>
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${getUsageColor(
+                          usageStats.keywordSearches.used,
+                          usageStats.keywordSearches.limit
+                        )}`}
+                      >
+                        {usageStats.keywordSearches.used}/{usageStats.keywordSearches.limit}
+                      </span>
+                    </div>
+                    <Progress
+                      value={getUsagePercentage(
+                        usageStats.keywordSearches.used,
+                        usageStats.keywordSearches.limit
+                      )}
+                      className="h-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">Resets daily</p>
+                  </div>
+
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Youtube className="w-4 h-4 text-red-500" />
+                        <span className="text-sm font-medium">Channels Connected</span>
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${getUsageColor(
+                          usageStats.channelsConnected.used,
+                          usageStats.channelsConnected.limit
+                        )}`}
+                      >
+                        {usageStats.channelsConnected.used}/{usageStats.channelsConnected.limit}
+                      </span>
+                    </div>
+                    <Progress
+                      value={getUsagePercentage(
+                        usageStats.channelsConnected.used,
+                        usageStats.channelsConnected.limit
+                      )}
+                      className="h-2"
+                    />
+                  </div>
+
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm font-medium">Competitors Tracked</span>
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${getUsageColor(
+                          usageStats.competitorsTracked.used,
+                          usageStats.competitorsTracked.limit
+                        )}`}
+                      >
+                        {usageStats.competitorsTracked.used}/{usageStats.competitorsTracked.limit}
+                      </span>
+                    </div>
+                    <Progress
+                      value={getUsagePercentage(
+                        usageStats.competitorsTracked.used,
+                        usageStats.competitorsTracked.limit
+                      )}
+                      className="h-2"
+                    />
+                  </div>
+                </div>
+
+                {isFreeTier && (
+                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                    <div className="flex items-center gap-3">
+                      <Crown className="w-5 h-5 text-primary" />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground">Need more?</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Upgrade to Pro for unlimited AI generations and keyword searches
+                        </p>
+                      </div>
+                      <Button size="sm" onClick={() => setUpgradeModalOpen(true)}>
+                        Upgrade Now
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Billing History */}
+            {!isFreeTier && (
+              <Card className="bg-card border-border">
+                <CardHeader>
+                  <CardTitle>Billing History</CardTitle>
+                  <CardDescription>
+                    View your past invoices and payments
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-border">
+                        <TableHead>Date</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Invoice</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {billingHistory.map((item, index) => (
+                        <TableRow key={index} className="border-border">
+                          <TableCell>{item.date}</TableCell>
+                          <TableCell>{item.amount}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className="bg-green-500/10 text-green-500 border-green-500/20"
+                            >
+                              {item.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="link" size="sm" className="text-primary p-0 h-auto">
+                              Download <ExternalLink className="w-3 h-3 ml-1" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <Separator className="my-6 bg-border" />
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-foreground">Cancel Subscription</h4>
+                      <p className="text-sm text-muted-foreground">
+                        You'll keep access until the end of your billing period
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => setCancelModalOpen(true)}
+                    >
+                      Cancel Subscription
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
           {/* Connected Accounts Tab */}
           <TabsContent value="connections" className="space-y-6">
             <Card className="bg-card border-border">
@@ -415,7 +862,6 @@ const Settings = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* YouTube Connection */}
                 <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center">
@@ -423,15 +869,12 @@ const Settings = () => {
                     </div>
                     <div>
                       <h4 className="font-medium text-foreground">YouTube Channel</h4>
-                      <p className="text-sm text-muted-foreground">
-                        No channel connected
-                      </p>
+                      <p className="text-sm text-muted-foreground">No channel connected</p>
                     </div>
                   </div>
                   <Button variant="outline">Connect Channel</Button>
                 </div>
 
-                {/* Google Account */}
                 <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -453,14 +896,12 @@ const Settings = () => {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-foreground">
-                      Connect Another Channel
-                    </h4>
+                    <h4 className="font-medium text-foreground">Connect Another Channel</h4>
                     <p className="text-sm text-muted-foreground">
                       Upgrade to Pro to connect multiple channels
                     </p>
                   </div>
-                  <Button variant="secondary">
+                  <Button variant="secondary" onClick={() => setUpgradeModalOpen(true)}>
                     Upgrade Plan
                   </Button>
                 </div>
@@ -476,12 +917,9 @@ const Settings = () => {
                   <AlertTriangle className="w-5 h-5" />
                   Danger Zone
                 </CardTitle>
-                <CardDescription>
-                  Irreversible and destructive actions
-                </CardDescription>
+                <CardDescription>Irreversible and destructive actions</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Export Data */}
                 <div className="flex items-center justify-between p-4 bg-background rounded-lg border border-border">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -494,11 +932,7 @@ const Settings = () => {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={handleExportData}
-                    disabled={isExporting}
-                  >
+                  <Button variant="outline" onClick={handleExportData} disabled={isExporting}>
                     {isExporting ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -515,7 +949,6 @@ const Settings = () => {
 
                 <Separator className="bg-border" />
 
-                {/* Delete Account */}
                 <div className="flex items-center justify-between p-4 bg-destructive/5 rounded-lg border border-destructive/20">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-lg bg-destructive/10 flex items-center justify-center">
@@ -528,10 +961,7 @@ const Settings = () => {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    variant="destructive"
-                    onClick={() => setDeleteModalOpen(true)}
-                  >
+                  <Button variant="destructive" onClick={() => setDeleteModalOpen(true)}>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Account
                   </Button>
@@ -561,6 +991,20 @@ const Settings = () => {
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleDeleteAccount}
         userEmail={user?.email || ""}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        currentPlan={currentPlan as "free" | "pro" | "agency"}
+      />
+
+      {/* Cancel Subscription Modal */}
+      <CancelSubscriptionModal
+        open={cancelModalOpen}
+        onClose={() => setCancelModalOpen(false)}
+        onConfirm={handleCancelSubscription}
       />
     </DashboardLayout>
   );
