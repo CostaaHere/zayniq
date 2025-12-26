@@ -35,24 +35,29 @@ serve(async (req) => {
       );
     }
 
-    const { niche, targetAudience, contentStyles, includeTrending, numberOfIdeas } = await req.json();
+    const { topic, niche, targetAudience, contentStyles, includeTrending, numberOfIdeas } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Generating content ideas for user:', user.id, 'niche:', niche, 'count:', numberOfIdeas);
+    // Use custom topic if provided, otherwise fallback to niche
+    const mainTopic = topic?.trim() || niche || 'General';
+    
+    console.log('Generating content ideas for user:', user.id, 'topic:', mainTopic, 'count:', numberOfIdeas);
 
     const stylesText = contentStyles?.length > 0 ? contentStyles.join(', ') : 'Any style';
-    const trendingText = includeTrending ? 'Include current trending topics and viral formats.' : '';
+    const trendingText = includeTrending ? 'Include current trending topics and viral formats relevant to this topic.' : '';
 
-    const prompt = `You are a YouTube content strategist and trend analyst. Generate ${numberOfIdeas || 10} unique video content ideas.
+    const prompt = `You are a YouTube content strategist and trend analyst. Generate ${numberOfIdeas || 10} unique viral video content ideas.
 
-Niche: ${niche || 'General'}
+Topic/Niche: ${mainTopic}
 Target Audience: ${targetAudience || 'General audience'}
 Content Styles: ${stylesText}
 ${trendingText}
+
+IMPORTANT: Focus specifically on "${mainTopic}" - create ideas that are highly relevant, catchy, and creator-ready for this exact topic. Ideas should be clickable and optimized for YouTube/Shorts.
 
 For each idea, provide:
 1. A compelling video title (optimized for CTR)
