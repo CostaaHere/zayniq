@@ -3,6 +3,7 @@ import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
 import MainContentWrapper from "@/components/layout/MainContentWrapper";
 import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -19,11 +20,25 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
     <div className="min-h-screen bg-background flex w-full">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
-        <DashboardSidebar 
-          collapsed={sidebarCollapsed} 
-          onToggle={handleSidebarToggle} 
-        />
+        <DashboardSidebar collapsed={sidebarCollapsed} />
       </div>
+
+      {/* Desktop collapse toggle (always clickable) */}
+      <button
+        type="button"
+        onClick={handleSidebarToggle}
+        className={cn(
+          "hidden lg:flex fixed top-20 w-8 h-8 bg-primary text-primary-foreground border-2 border-background rounded-full items-center justify-center hover:bg-primary/90 transition-all duration-300 ease-in-out shadow-lg hover:scale-110 z-50",
+          sidebarCollapsed ? "left-[56px]" : "left-[244px]"
+        )}
+        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {sidebarCollapsed ? (
+          <ChevronRight className="w-4 h-4" />
+        ) : (
+          <ChevronLeft className="w-4 h-4" />
+        )}
+      </button>
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
@@ -40,10 +55,7 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <DashboardSidebar
-          collapsed={false}
-          onToggle={() => setMobileMenuOpen(false)}
-        />
+        <DashboardSidebar collapsed={false} />
       </div>
 
       {/* Main Content Area - Flex grow with margin for sidebar */}
