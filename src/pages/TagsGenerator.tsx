@@ -154,15 +154,32 @@ export default function TagsGenerator() {
 
   const saveTagSet = () => {
     const allTags = getAllTags();
-    const savedSets = JSON.parse(localStorage.getItem('savedTagSets') || '[]');
-    savedSets.push({
-      id: Date.now(),
-      title: title,
-      tags: allTags,
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem('savedTagSets', JSON.stringify(savedSets));
-    toast.success('Tag set saved for reuse!');
+    
+    try {
+      const rawData = localStorage.getItem('savedTagSets');
+      let savedSets: Array<{ id: number; title: string; tags: string[]; createdAt: string }> = [];
+      
+      if (rawData) {
+        const parsed = JSON.parse(rawData);
+        // Validate it's an array
+        savedSets = Array.isArray(parsed) ? parsed : [];
+      }
+      
+      savedSets.push({
+        id: Date.now(),
+        title: title,
+        tags: allTags,
+        createdAt: new Date().toISOString(),
+      });
+      
+      localStorage.setItem('savedTagSets', JSON.stringify(savedSets));
+      toast.success('Tag set saved for reuse!');
+    } catch (error) {
+      console.error('Failed to save tag set:', error);
+      toast.error('Failed to save tag set. Please try again.');
+      // Reset corrupted data
+      localStorage.removeItem('savedTagSets');
+    }
   };
 
   const charCount = getTotalCharCount();
