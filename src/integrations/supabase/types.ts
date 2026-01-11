@@ -280,6 +280,81 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_videos: {
+        Row: {
+          category_id: string | null
+          channel_row_id: string | null
+          comment_count: number | null
+          created_at: string
+          description: string | null
+          duration: string | null
+          id: string
+          like_count: number | null
+          published_at: string | null
+          raw: Json | null
+          tags: Json | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          view_count: number | null
+          youtube_video_id: string
+        }
+        Insert: {
+          category_id?: string | null
+          channel_row_id?: string | null
+          comment_count?: number | null
+          created_at?: string
+          description?: string | null
+          duration?: string | null
+          id?: string
+          like_count?: number | null
+          published_at?: string | null
+          raw?: Json | null
+          tags?: Json | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          view_count?: number | null
+          youtube_video_id: string
+        }
+        Update: {
+          category_id?: string | null
+          channel_row_id?: string | null
+          comment_count?: number | null
+          created_at?: string
+          description?: string | null
+          duration?: string | null
+          id?: string
+          like_count?: number | null
+          published_at?: string | null
+          raw?: Json | null
+          tags?: Json | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          view_count?: number | null
+          youtube_video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "youtube_videos_channel_row_fkey"
+            columns: ["channel_row_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "youtube_videos_user_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
