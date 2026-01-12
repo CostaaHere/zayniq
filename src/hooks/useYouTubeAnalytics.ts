@@ -84,20 +84,72 @@ export const useYouTubeAnalytics = (): UseYouTubeAnalyticsReturn => {
       },
     });
 
-    if (error) {
-      // supabase-js wraps non-2xx responses; the useful message is often in error.context
-      const ctxBody = (error as any)?.context?.body;
-      if (typeof ctxBody === "string") {
+    const extractBackendError = async (err: any): Promise<string | null> => {
+      const ctxBody = err?.context?.body;
+      if (!ctxBody) return null;
+
+      const parse = (raw: any): string | null => {
+        if (!raw) return null;
+        if (typeof raw === "string") {
+          try {
+            const parsed = JSON.parse(raw);
+            return parsed?.error ?? null;
+          } catch {
+            return null;
+          }
+        }
+        if (typeof raw === "object" && "error" in raw) {
+          return (raw as any).error ?? null;
+        }
+        return null;
+      };
+
+      // String or already-parsed object
+      const direct = parse(ctxBody);
+      if (direct) return direct;
+
+      // Uint8Array / ArrayBuffer
+      if (ctxBody instanceof Uint8Array) {
+        return parse(new TextDecoder().decode(ctxBody));
+      }
+      if (ctxBody instanceof ArrayBuffer) {
+        return parse(new TextDecoder().decode(new Uint8Array(ctxBody)));
+      }
+
+      // Blob
+      if (typeof Blob !== "undefined" && ctxBody instanceof Blob) {
+        return parse(await ctxBody.text());
+      }
+
+      // ReadableStream
+      if (ctxBody?.getReader) {
         try {
-          const parsed = JSON.parse(ctxBody);
-          if (parsed?.error) throw new Error(parsed.error);
+          const reader = ctxBody.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) chunks.push(value);
+          }
+          const merged = new Uint8Array(chunks.reduce((sum, c) => sum + c.length, 0));
+          let offset = 0;
+          for (const c of chunks) {
+            merged.set(c, offset);
+            offset += c.length;
+          }
+          return parse(new TextDecoder().decode(merged));
         } catch {
-          // ignore JSON parse failures
+          return null;
         }
       }
 
+      return null;
+    };
+
+    if (error) {
+      const backendMessage = await extractBackendError(error);
       logger.error("YouTube OAuth function error:", error);
-      throw new Error(error.message || "Failed to call YouTube API");
+      throw new Error(backendMessage || error.message || "Failed to call YouTube API");
     }
 
     if (data?.error) {
@@ -197,11 +249,16 @@ export const useYouTubeAnalytics = (): UseYouTubeAnalyticsReturn => {
       const errorMessage = err instanceof Error ? err.message : "Failed to sync data";
       logger.error("Error syncing YouTube data:", err);
       
-      if (errorMessage.includes("NO_YOUTUBE_TOKEN") || errorMessage.includes("YOUTUBE_AUTH_EXPIRED")) {
+      if (
+        errorMessage.includes("NO_YOUTUBE_TOKEN") ||
+        errorMessage.includes("YOUTUBE_AUTH_EXPIRED") ||
+        errorMessage.includes("YOUTUBE_NO_PERMISSION") ||
+        errorMessage.includes("ACCESS_TOKEN_SCOPE_INSUFFICIENT")
+      ) {
         setData(prev => ({ ...prev, needsYouTubeAuth: true }));
         toast({
-          title: "YouTube access expired",
-          description: "Please sign in again with Google to refresh YouTube access.",
+          title: "YouTube permission required",
+          description: "Please reconnect with Google and allow YouTube access on the consent screen.",
           variant: "destructive",
         });
       } else if (errorMessage.includes("YOUTUBE_NO_CHANNEL")) {

@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    const redirectTo = `${window.location.origin}/dashboard`;
+    const redirectTo = `${window.location.origin}/auth/callback`;
     const inIframe = (() => {
       try {
         return window.self !== window.top;
@@ -101,21 +101,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     })();
 
+    const oauthOptions = {
+      redirectTo,
+      scopes: "https://www.googleapis.com/auth/youtube.readonly",
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+        include_granted_scopes: "true",
+      },
+    } as const;
+
+    // If the user is already signed in (email/password), link Google to the SAME user.
+    // This avoids creating a second account (which causes the "no data" / auth loop symptoms).
+    const startOAuth = user
+      ? () => supabase.auth.linkIdentity({ provider: "google", options: oauthOptions })
+      : () => supabase.auth.signInWithOAuth({ provider: "google", options: oauthOptions });
+
     // Google blocks many OAuth pages inside iframes/webviews.
     // In Lovable live preview (iframe), open the OAuth flow in a new tab.
     if (inIframe) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-          scopes: "https://www.googleapis.com/auth/youtube.readonly",
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-          skipBrowserRedirect: true,
-        },
-      });
+      const { data, error } = await startOAuth().then(({ data, error }: any) => ({ data, error }));
 
       if (!error && data?.url) {
         window.open(data.url, "_blank", "noopener,noreferrer");
@@ -124,17 +129,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error };
     }
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        scopes: "https://www.googleapis.com/auth/youtube.readonly",
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
-      },
-    });
+    const { error } = await startOAuth();
     return { error };
   };
 
