@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { decode } from "https://deno.land/std@0.208.0/encoding/base64url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -249,78 +250,92 @@ serve(async (req) => {
   try {
     // Get the authorization header
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       throw new Error("NO_AUTH: Authorization header is required");
     }
 
     // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error("SUPABASE_CONFIG_ERROR: Missing Supabase configuration");
     }
 
-    // Create anon client to verify the user
-    const supabaseAnonClient = createClient(supabaseUrl, supabaseAnonKey, {
+    // Create client with auth header
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Get the authenticated user
-    const { data: { user }, error: userError } = await supabaseAnonClient.auth.getUser();
+    // Decode JWT to get user ID (the signing is already verified by Supabase infrastructure)
+    const token = authHeader.replace("Bearer ", "");
+    let userId: string;
     
-    if (userError || !user) {
-      console.error("Auth error:", userError);
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        throw new Error("Invalid JWT format");
+      }
+      const payload = JSON.parse(new TextDecoder().decode(decode(parts[1])));
+      userId = payload.sub;
+      
+      if (!userId) {
+        throw new Error("No user ID in token");
+      }
+      
+      // Verify token is not expired
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        throw new Error("Token expired");
+      }
+      
+      console.log("User authenticated:", userId);
+    } catch (e) {
+      console.error("JWT decode error:", e);
       throw new Error("AUTH_ERROR: Invalid or expired session. Please sign in again.");
     }
 
-    // Get the user's Google OAuth provider token
-    const { data: sessionData, error: sessionError } = await supabaseAnonClient.auth.getSession();
-    
-    if (sessionError || !sessionData.session) {
-      console.error("Session error:", sessionError);
-      throw new Error("SESSION_ERROR: Could not retrieve session. Please sign in again.");
-    }
-
-    const providerToken = sessionData.session.provider_token;
-    
-    if (!providerToken) {
-      throw new Error("NO_YOUTUBE_TOKEN: YouTube access not granted. Please sign in with Google and grant YouTube permissions.");
-    }
-
     // Parse request body
-    const { action, ...params } = await req.json();
-    console.log(`YouTube OAuth action: ${action}`, { userId: user.id });
+    const { action, providerToken, ...params } = await req.json();
+    console.log(`YouTube OAuth action: ${action}`, { userId });
 
     // Create service role client for database operations
     const supabaseAdmin = supabaseServiceKey 
       ? createClient(supabaseUrl, supabaseServiceKey)
-      : supabaseAnonClient;
+      : supabaseClient;
 
     let result;
 
     switch (action) {
       case "fetchMyChannel":
+        if (!providerToken) {
+          throw new Error("NO_YOUTUBE_TOKEN: YouTube access not granted. Please sign in with Google and grant YouTube permissions.");
+        }
         result = await fetchMyChannel(providerToken);
         break;
 
       case "fetchMyVideos":
+        if (!providerToken) {
+          throw new Error("NO_YOUTUBE_TOKEN: YouTube access not granted. Please sign in with Google and grant YouTube permissions.");
+        }
         result = await fetchMyVideos(providerToken, params.maxResults || 10);
         break;
 
       case "syncMyData":
+        if (!providerToken) {
+          throw new Error("NO_YOUTUBE_TOKEN: YouTube access not granted. Please sign in with Google and grant YouTube permissions.");
+        }
         const { channel, videos } = await fetchMyVideos(providerToken, params.maxResults || 50);
-        await syncToDatabase(supabaseAdmin, user.id, channel, videos);
+        await syncToDatabase(supabaseAdmin, userId, channel, videos);
         result = { channel, videos, synced: true };
         break;
 
       case "getStoredData":
-        // Fetch from database instead of API
+        // Fetch from database instead of API - no provider token needed
         const { data: storedChannel, error: channelFetchError } = await supabaseAdmin
           .from("channels")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .maybeSingle();
 
         if (channelFetchError) {
@@ -330,7 +345,7 @@ serve(async (req) => {
         const { data: storedVideos, error: videosFetchError } = await supabaseAdmin
           .from("youtube_videos")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .order("published_at", { ascending: false })
           .limit(params.limit || 10);
 
