@@ -92,10 +92,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
+    const redirectTo = `${window.location.origin}/dashboard`;
+    const inIframe = (() => {
+      try {
+        return window.self !== window.top;
+      } catch {
+        return true;
+      }
+    })();
+
+    // Google blocks many OAuth pages inside iframes/webviews.
+    // In Lovable live preview (iframe), open the OAuth flow in a new tab.
+    if (inIframe) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          scopes: "https://www.googleapis.com/auth/youtube.readonly",
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (!error && data?.url) {
+        window.open(data.url, "_blank", "noopener,noreferrer");
+      }
+
+      return { error };
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo,
         scopes: "https://www.googleapis.com/auth/youtube.readonly",
         queryParams: {
           access_type: "offline",
