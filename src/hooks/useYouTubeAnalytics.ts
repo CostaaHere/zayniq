@@ -69,14 +69,33 @@ export const useYouTubeAnalytics = (): UseYouTubeAnalyticsReturn => {
   }, [session]);
 
   /**
-   * Invoke the youtube-oauth edge function
+   * Invoke the youtube-oauth backend function
    */
   const invokeYouTubeOAuth = async (action: string, params: Record<string, any> = {}) => {
+    const providerToken = session?.provider_token ?? null;
+
     const { data, error } = await supabase.functions.invoke("youtube-oauth", {
-      body: { action, ...params },
+      body: {
+        action,
+        // Provide the Google OAuth access token when available.
+        // The backend function requires this for YouTube API calls (syncMyData/fetchMy*).
+        providerToken,
+        ...params,
+      },
     });
 
     if (error) {
+      // supabase-js wraps non-2xx responses; the useful message is often in error.context
+      const ctxBody = (error as any)?.context?.body;
+      if (typeof ctxBody === "string") {
+        try {
+          const parsed = JSON.parse(ctxBody);
+          if (parsed?.error) throw new Error(parsed.error);
+        } catch {
+          // ignore JSON parse failures
+        }
+      }
+
       logger.error("YouTube OAuth function error:", error);
       throw new Error(error.message || "Failed to call YouTube API");
     }
