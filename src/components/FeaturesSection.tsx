@@ -1,4 +1,4 @@
-import { BarChart3, Sparkles, Search, Users, Gauge, Zap, TrendingUp, Video, Bell, FileText } from "lucide-react";
+import { BarChart3, Brain, Eye, Users, Target, Zap, LineChart } from "lucide-react";
 import { ScrollAnimation } from "@/hooks/useScrollAnimation";
 
 const MiniChart = () => (
@@ -13,13 +13,13 @@ const MiniChart = () => (
   </div>
 );
 
-const featureTags = [
-  "Thumbnail A/B Testing",
-  "Upload Scheduler",
-  "Revenue Tracking",
-  "Audience Insights",
-  "Trend Alerts",
-  "Export Reports",
+const platformCapabilities = [
+  "Audience Behavior Analysis",
+  "Trend Forecasting",
+  "Revenue Intelligence",
+  "Content Strategy Insights",
+  "Performance Benchmarking",
+  "Growth Opportunity Mapping",
 ];
 
 const FeaturesSection = () => {
@@ -31,11 +31,11 @@ const FeaturesSection = () => {
         <ScrollAnimation>
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Everything you need to
-              <span className="gradient-text"> dominate YouTube</span>
+              One intelligent platform,
+              <span className="gradient-text"> complete channel mastery</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Powerful features designed to help creators understand, optimize, and grow their channels.
+              ZainIQ learns your channel inside and out—delivering actionable intelligence to accelerate your growth.
             </p>
           </div>
         </ScrollAnimation>
@@ -43,32 +43,32 @@ const FeaturesSection = () => {
         {/* Bento Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
           
-          {/* Large Card - Real-Time Analytics (2 columns) */}
+          {/* Large Card - Channel Intelligence (2 columns) */}
           <ScrollAnimation delay={0} className="md:col-span-2 lg:col-span-2">
             <div className="group h-full p-8 rounded-2xl bg-card/50 border border-border/50 backdrop-blur-sm transition-all duration-500 hover:border-primary/50 hover:shadow-[0_0_40px_hsl(262,83%,58%,0.15)] hover:-translate-y-1">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                 <BarChart3 className="w-7 h-7 text-primary" />
               </div>
-              <h3 className="text-2xl font-bold mb-2">Real-Time Analytics</h3>
+              <h3 className="text-2xl font-bold mb-2">Channel Intelligence</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Track views, subscribers, watch time, and revenue as they happen. Get instant insights with beautiful visualizations.
+                Deep insights into your channel's performance, audience behavior, and growth patterns—updated in real-time.
               </p>
               <MiniChart />
             </div>
           </ScrollAnimation>
 
-          {/* Medium Card - AI-Powered Tools */}
+          {/* Medium Card - AI Brain */}
           <ScrollAnimation delay={100} className="lg:row-span-2">
             <div className="group h-full p-8 rounded-2xl bg-card/50 border border-border/50 backdrop-blur-sm transition-all duration-500 hover:border-accent/50 hover:shadow-[0_0_40px_hsl(199,89%,48%,0.15)] hover:-translate-y-1">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                <Sparkles className="w-7 h-7 text-accent" />
+                <Brain className="w-7 h-7 text-accent" />
               </div>
-              <h3 className="text-2xl font-bold mb-2">AI-Powered Tools</h3>
+              <h3 className="text-2xl font-bold mb-2">AI-Powered Insights</h3>
               <p className="text-muted-foreground leading-relaxed mb-6">
-                Generate click-worthy thumbnails, optimize titles, and get script suggestions powered by AI trained on viral content.
+                Our AI understands your channel's DNA and delivers personalized recommendations to maximize your impact.
               </p>
               <div className="space-y-3">
-                {["Thumbnail Generator", "Title Optimizer", "Script Assistant"].map((item, i) => (
+                {["Content Optimization", "Title & Thumbnail Analysis", "Publishing Strategy"].map((item, i) => (
                   <div key={i} className="flex items-center gap-3 text-sm">
                     <div className="w-2 h-2 rounded-full bg-gradient-to-r from-primary to-accent" />
                     <span className="text-muted-foreground">{item}</span>
@@ -78,65 +78,65 @@ const FeaturesSection = () => {
             </div>
           </ScrollAnimation>
 
-          {/* Standard Card - Keyword Research */}
+          {/* Standard Card - Audience Understanding */}
           <ScrollAnimation delay={150}>
             <div className="group h-full p-6 rounded-2xl bg-card/50 border border-border/50 backdrop-blur-sm transition-all duration-500 hover:border-primary/50 hover:shadow-[0_0_40px_hsl(262,83%,58%,0.15)] hover:-translate-y-1">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <Search className="w-6 h-6 text-primary" />
+                <Eye className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-lg font-bold mb-2">Keyword Research</h3>
+              <h3 className="text-lg font-bold mb-2">Audience Understanding</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Discover high-ranking keywords and optimize for search.
+                Know who's watching, what they want, and when they engage most.
               </p>
             </div>
           </ScrollAnimation>
 
-          {/* Standard Card - Competitor Tracking */}
+          {/* Standard Card - Competitor Intelligence */}
           <ScrollAnimation delay={200}>
             <div className="group h-full p-6 rounded-2xl bg-card/50 border border-border/50 backdrop-blur-sm transition-all duration-500 hover:border-primary/50 hover:shadow-[0_0_40px_hsl(262,83%,58%,0.15)] hover:-translate-y-1">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                 <Users className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-lg font-bold mb-2">Competitor Tracking</h3>
+              <h3 className="text-lg font-bold mb-2">Competitor Intelligence</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Monitor rivals and spot trends before they go viral.
+                Track rivals, spot opportunities, and stay ahead of your niche.
               </p>
             </div>
           </ScrollAnimation>
 
-          {/* Standard Card - SEO Scoring */}
+          {/* Standard Card - Discovery Optimization */}
           <ScrollAnimation delay={250}>
             <div className="group h-full p-6 rounded-2xl bg-card/50 border border-border/50 backdrop-blur-sm transition-all duration-500 hover:border-accent/50 hover:shadow-[0_0_40px_hsl(199,89%,48%,0.15)] hover:-translate-y-1">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <Gauge className="w-6 h-6 text-accent" />
+                <Target className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="text-lg font-bold mb-2">SEO Scoring</h3>
+              <h3 className="text-lg font-bold mb-2">Discovery Optimization</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Get actionable scores to improve discoverability.
+                Maximize visibility with intelligent SEO and keyword insights.
               </p>
             </div>
           </ScrollAnimation>
 
-          {/* Wide Card - And more... (3 columns) */}
+          {/* Wide Card - Full Platform (3 columns) */}
           <ScrollAnimation delay={300} className="md:col-span-2 lg:col-span-3">
             <div className="group h-full p-8 rounded-2xl bg-gradient-to-br from-card/80 to-card/40 border border-border/50 backdrop-blur-sm transition-all duration-500 hover:border-primary/30 hover:shadow-[0_0_40px_hsl(262,83%,58%,0.1)] hover:-translate-y-1">
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    <Zap className="w-6 h-6 text-primary" />
+                    <LineChart className="w-6 h-6 text-primary" />
                   </div>
-                  <h3 className="text-xl font-bold mb-2">And so much more...</h3>
+                  <h3 className="text-xl font-bold mb-2">Complete Growth Intelligence</h3>
                   <p className="text-muted-foreground max-w-md">
-                    Discover all the powerful tools designed to supercharge your YouTube growth.
+                    A unified platform that connects every aspect of your channel's success.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 max-w-sm">
-                  {featureTags.map((tag, i) => (
+                  {platformCapabilities.map((capability, i) => (
                     <span
                       key={i}
                       className="px-3 py-1.5 rounded-full text-xs font-medium bg-secondary/50 border border-border/50 text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors cursor-default"
                     >
-                      {tag}
+                      {capability}
                     </span>
                   ))}
                 </div>

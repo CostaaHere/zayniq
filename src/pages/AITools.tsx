@@ -14,88 +14,88 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-const aiTools = [
+const aiCapabilities = [
   {
     id: "titles",
-    title: "Title Generator",
-    description: "Generate click-worthy titles optimized for engagement and SEO",
+    title: "Title Optimization",
+    description: "AI-powered analysis to craft titles that resonate with your audience",
     icon: Type,
     path: "/dashboard/ai-tools/titles",
     gradient: "from-primary to-accent",
-    features: ["10 title options", "Power word analysis", "Character count"],
+    features: ["Audience-tailored", "SEO analysis", "Engagement scoring"],
     isNew: true,
   },
   {
     id: "descriptions",
-    title: "Description Generator",
-    description: "Create optimized descriptions with hashtags and CTAs",
+    title: "Description Intelligence",
+    description: "Strategic descriptions that improve discoverability and viewer engagement",
     icon: FileText,
     path: "/dashboard/ai-tools/descriptions",
     gradient: "from-accent to-primary",
-    features: ["SEO optimized", "Hashtag suggestions", "YouTube preview"],
+    features: ["SEO-optimized", "Smart CTAs", "Keyword integration"],
     isNew: true,
   },
   {
     id: "tags",
-    title: "Tag Generator",
-    description: "Generate relevant tags to improve video discoverability",
+    title: "Tag Strategy",
+    description: "Intelligent tag recommendations based on your content and competition",
     icon: Hash,
     path: "/dashboard/ai-tools/tags",
     gradient: "from-purple-500 to-pink-500",
-    features: ["Broad & specific tags", "Drag to reorder", "500 char limit"],
+    features: ["Competitive analysis", "Niche targeting", "Trend-aware"],
     isNew: true,
   },
   {
     id: "thumbnails",
-    title: "Thumbnail Ideas",
-    description: "Get AI-powered thumbnail concepts and text overlays",
+    title: "Thumbnail Insights",
+    description: "AI-driven concepts to maximize click-through rates",
     icon: Image,
     path: "/dashboard/ai-tools/thumbnails",
     gradient: "from-orange-500 to-red-500",
-    features: ["Text suggestions", "Color palettes", "Layout ideas"],
+    features: ["Visual strategy", "Text guidance", "Color psychology"],
     isNew: true,
   },
   {
     id: "ideas",
-    title: "Content Ideas",
-    description: "Discover trending topics and video ideas for your niche",
+    title: "Content Intelligence",
+    description: "Discover what your audience wants before they know it",
     icon: Lightbulb,
     path: "/dashboard/ai-tools/content-ideas",
     gradient: "from-yellow-500 to-orange-500",
-    features: ["Niche analysis", "Trend detection", "Save & schedule"],
+    features: ["Trend detection", "Audience demand", "Opportunity mapping"],
     isNew: true,
   },
   {
     id: "analytics",
-    title: "Performance Predictor",
-    description: "Predict how your video might perform before publishing",
+    title: "Performance Prediction",
+    description: "Forecast video performance with AI-powered analysis",
     icon: TrendingUp,
     path: "/dashboard/ai-tools/predictor",
     gradient: "from-green-500 to-teal-500",
-    features: ["View estimates", "Engagement score", "Best time to post"],
+    features: ["View forecasting", "Engagement prediction", "Optimal timing"],
     comingSoon: true,
   },
 ];
 
 const AITools = () => {
   return (
-    <DashboardLayout title="AI Tools">
+    <DashboardLayout title="AI Studio">
       <div className="space-y-8">
         {/* Header */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold">AI-Powered Tools</h2>
+            <h2 className="text-2xl font-bold">AI Studio</h2>
           </div>
           <p className="text-muted-foreground max-w-2xl">
-            Supercharge your YouTube workflow with our AI tools designed to help you create
-            better content, optimize for search, and grow your channel faster.
+            Your intelligent content partner. AI that understands your channel and delivers 
+            personalized insights to optimize every aspect of your content strategy.
           </p>
         </div>
 
-        {/* Tools Grid */}
+        {/* Capabilities Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {aiTools.map((tool) => (
+          {aiCapabilities.map((tool) => (
             <Card
               key={tool.id}
               className={`bg-card border-border relative overflow-hidden group transition-all duration-300 ${
@@ -153,7 +153,7 @@ const AITools = () => {
                 ) : (
                   <Button asChild className="w-full group/btn gap-2">
                     <Link to={tool.path}>
-                      Get Started
+                      Open
                       <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
                     </Link>
                   </Button>
@@ -171,11 +171,10 @@ const AITools = () => {
                 <Lightbulb className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold mb-1">Pro Tips</h3>
+                <h3 className="font-semibold mb-1">How It Works</h3>
                 <p className="text-sm text-muted-foreground">
-                  For best results, be specific with your inputs. Include your target keyword,
-                  niche, and desired tone to get more relevant and optimized outputs. The AI
-                  learns from YouTube best practices and trending patterns.
+                  ZainIQ learns from your channel's performance data, audience behavior, and competitive landscape.
+                  The more you use it, the smarter your recommendations become—tailored specifically to your growth goals.
                 </p>
               </div>
             </div>
