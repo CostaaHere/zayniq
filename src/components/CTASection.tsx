@@ -1,6 +1,7 @@
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollAnimation } from "@/hooks/useScrollAnimation";
+import { Link } from "react-router-dom";
 
 const CTASection = () => {
   return (
@@ -17,24 +18,26 @@ const CTASection = () => {
         <ScrollAnimation>
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-sm font-medium text-primary mb-6">
-              <Sparkles className="w-4 h-4" />
-              Start growing today
+              <Brain className="w-4 h-4" />
+              Start growing smarter
             </div>
             
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
-              Ready to Grow
+              Ready for
               <br />
-              <span className="gradient-text">Your Channel?</span>
+              <span className="gradient-text">Intelligent Growth?</span>
             </h2>
             
             <p className="text-xl text-muted-foreground mb-8 max-w-xl mx-auto">
-              Join 50,000+ creators who are already using ZaynIQ to unlock their channel's full potential.
+              Join 50,000+ creators who trust ZainIQ to understand their channel and unlock their full potential.
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-              <Button variant="hero" size="xl" className="group">
-                Start Free Trial
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <Button variant="hero" size="xl" className="group" asChild>
+                <Link to="/signup">
+                  Get Started Free
+                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
               </Button>
               <Button variant="glass" size="xl">
                 Schedule Demo
@@ -48,7 +51,7 @@ const CTASection = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
-                14-day free trial
+                Full access for 14 days
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500" />

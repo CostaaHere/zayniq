@@ -26,9 +26,9 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: PlayCircle, label: "My Channel", href: "/dashboard/channel" },
   { icon: Film, label: "Videos", href: "/dashboard/videos" },
-  { icon: Search, label: "Keywords", href: "/dashboard/keywords" },
+  { icon: Search, label: "Discovery", href: "/dashboard/keywords" },
   { icon: Users, label: "Competitors", href: "/dashboard/competitors" },
-  { icon: Sparkles, label: "AI Tools", href: "/dashboard/ai-tools" },
+  { icon: Sparkles, label: "AI Studio", href: "/dashboard/ai-tools" },
   { icon: Settings, label: "Settings", href: "/dashboard/settings" },
 ];
 

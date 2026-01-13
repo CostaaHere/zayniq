@@ -25,7 +25,7 @@ const Navbar = () => {
             onClick={() => scrollToSection("features")}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            Features
+            Platform
           </button>
           <button
             onClick={() => scrollToSection("pricing")}
@@ -37,7 +37,7 @@ const Navbar = () => {
             onClick={() => scrollToSection("testimonials")}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            Testimonials
+            Creators
           </button>
         </div>
 
