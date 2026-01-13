@@ -8,12 +8,12 @@ export default {
     container: {
       center: true,
       padding: {
-        DEFAULT: "1rem",
-        md: "1.25rem",
-        lg: "1.5rem",
+        DEFAULT: "1.5rem",
+        md: "2rem",
+        lg: "3rem",
       },
       screens: {
-        "2xl": "1280px",
+        "2xl": "1200px",
       },
     },
     extend: {
@@ -53,8 +53,13 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Cal Sans", "Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+      },
+      fontSize: {
+        "display-xl": ["4.5rem", { lineHeight: "1.1", letterSpacing: "-0.02em" }],
+        "display": ["3.5rem", { lineHeight: "1.15", letterSpacing: "-0.02em" }],
+        "title": ["2.25rem", { lineHeight: "1.2", letterSpacing: "-0.01em" }],
+        "subtitle": ["1.5rem", { lineHeight: "1.4", letterSpacing: "-0.01em" }],
       },
       borderRadius: {
         lg: "var(--radius)",
