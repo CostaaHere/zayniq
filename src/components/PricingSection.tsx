@@ -1,56 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Check, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ScrollAnimation } from "@/hooks/useScrollAnimation";
-
-const plans = [
-  {
-    name: "Starter",
-    price: 0,
-    description: "Explore the platform",
-    features: [
-      "Channel intelligence dashboard",
-      "3 content analyses per month",
-      "Basic discovery insights",
-      "Community support",
-    ],
-    cta: "Get started",
-    popular: false,
-  },
-  {
-    name: "Growth",
-    monthlyPrice: 19,
-    yearlyPrice: 15,
-    description: "For serious creators",
-    features: [
-      "Everything in Starter",
-      "Unlimited content analyses",
-      "Full AI Studio access",
-      "Competitor intelligence (5 channels)",
-      "Advanced discovery optimization",
-      "Priority support",
-    ],
-    cta: "Start free trial",
-    popular: true,
-  },
-  {
-    name: "Scale",
-    monthlyPrice: 49,
-    yearlyPrice: 39,
-    description: "For teams and agencies",
-    features: [
-      "Everything in Growth",
-      "Unlimited competitor intelligence",
-      "Team collaboration (5 seats)",
-      "White-label reports",
-      "API access",
-      "Dedicated success manager",
-    ],
-    cta: "Contact sales",
-    popular: false,
-  },
-];
 
 const PricingSection = () => {
   const [isYearly, setIsYearly] = useState(true);
@@ -59,16 +11,23 @@ const PricingSection = () => {
     <section id="pricing" className="py-32">
       <div className="container">
         <ScrollAnimation>
-          <div className="text-center mb-16">
-            <h2 className="text-title md:text-display font-semibold mb-4">
-              Simple pricing
-            </h2>
-            <p className="text-lg text-muted-foreground mb-10">
-              Start free, upgrade when you're ready.
+          <div className="text-center mb-20">
+            <p className="text-sm text-muted-foreground/60 uppercase tracking-widest mb-4">
+              Pricing
             </p>
+            <h2 className="text-3xl md:text-4xl font-semibold mb-4">
+              Start free. Grow when ready.
+            </h2>
+            <p className="text-muted-foreground">
+              No surprises. Cancel anytime.
+            </p>
+          </div>
+        </ScrollAnimation>
 
-            {/* Billing toggle */}
-            <div className="inline-flex items-center gap-3 p-1 rounded-lg bg-muted">
+        {/* Billing toggle - subtle */}
+        <ScrollAnimation>
+          <div className="flex justify-center mb-16">
+            <div className="inline-flex items-center gap-3 p-1 rounded-lg bg-muted/50">
               <button
                 onClick={() => setIsYearly(false)}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
@@ -81,72 +40,99 @@ const PricingSection = () => {
               </button>
               <button
                 onClick={() => setIsYearly(true)}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                   isYearly
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Yearly
-                <span className="text-xs text-accent font-semibold">-20%</span>
+                Yearly <span className="text-accent text-xs ml-1">-20%</span>
               </button>
             </div>
           </div>
         </ScrollAnimation>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {plans.map((plan, index) => (
-            <ScrollAnimation key={index} delay={index * 100}>
-              <div
-                className={`relative p-8 rounded-xl transition-all ${
-                  plan.popular
-                    ? "bg-muted ring-1 ring-primary/20"
-                    : "bg-card hover:bg-muted/50"
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-full">
-                    Popular
-                  </div>
-                )}
-
-                <div className="mb-8">
-                  <h3 className="text-xl font-semibold mb-1">{plan.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{plan.description}</p>
+        {/* Pricing - Growth highlighted as primary path */}
+        <div className="max-w-4xl mx-auto">
+          <ScrollAnimation>
+            {/* Primary choice - Growth plan */}
+            <div className="relative p-10 rounded-2xl bg-gradient-to-b from-muted/80 to-muted/40 mb-8">
+              <div className="absolute -top-3 left-8 px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-full">
+                Most popular
+              </div>
+              
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+                <div>
+                  <h3 className="text-2xl font-semibold mb-1">Growth</h3>
+                  <p className="text-muted-foreground mb-4">For serious creators</p>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-semibold">
-                      ${plan.price !== undefined 
-                        ? plan.price 
-                        : isYearly 
-                          ? plan.yearlyPrice 
-                          : plan.monthlyPrice}
+                    <span className="text-5xl font-semibold">
+                      ${isYearly ? 15 : 19}
                     </span>
                     <span className="text-muted-foreground">/month</span>
                   </div>
                 </div>
 
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, featureIndex) => (
-                    <li key={featureIndex} className="flex items-start gap-3 text-sm">
-                      <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                      <span className="text-muted-foreground">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex-1 md:max-w-sm">
+                  <ul className="grid grid-cols-1 gap-2 mb-6">
+                    {[
+                      "Unlimited content analyses",
+                      "Full AI Studio access",
+                      "Competitor intelligence",
+                      "Advanced discovery optimization",
+                    ].map((feature, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Check className="w-4 h-4 text-primary shrink-0" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
                 <Button
-                  className={`w-full ${
-                    plan.popular
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "bg-muted hover:bg-muted/80 text-foreground"
-                  }`}
+                  size="lg"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-8"
                   asChild
                 >
-                  <Link to="/signup">{plan.cta}</Link>
+                  <Link to="/signup">
+                    Start free trial
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Link>
                 </Button>
               </div>
-            </ScrollAnimation>
-          ))}
+            </div>
+          </ScrollAnimation>
+
+          {/* Secondary options - de-emphasized */}
+          <ScrollAnimation delay={100}>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Starter */}
+              <div className="p-6 rounded-xl bg-card/50">
+                <h3 className="text-lg font-semibold mb-1">Starter</h3>
+                <p className="text-sm text-muted-foreground mb-4">Explore the platform</p>
+                <div className="flex items-baseline gap-1 mb-6">
+                  <span className="text-3xl font-semibold">$0</span>
+                  <span className="text-muted-foreground text-sm">/month</span>
+                </div>
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link to="/signup">Get started</Link>
+                </Button>
+              </div>
+
+              {/* Scale */}
+              <div className="p-6 rounded-xl bg-card/50">
+                <h3 className="text-lg font-semibold mb-1">Scale</h3>
+                <p className="text-sm text-muted-foreground mb-4">For teams and agencies</p>
+                <div className="flex items-baseline gap-1 mb-6">
+                  <span className="text-3xl font-semibold">${isYearly ? 39 : 49}</span>
+                  <span className="text-muted-foreground text-sm">/month</span>
+                </div>
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link to="/signup">Contact sales</Link>
+                </Button>
+              </div>
+            </div>
+          </ScrollAnimation>
         </div>
       </div>
     </section>
