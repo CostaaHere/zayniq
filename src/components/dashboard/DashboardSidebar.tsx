@@ -13,23 +13,19 @@ import {
   Sparkles,
   Settings,
   LogOut,
-  Crown,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 
-// Storage key for persisting sidebar state
 const SIDEBAR_STORAGE_KEY = "sidebarCollapsed";
 
-// Navigation items configuration
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: PlayCircle, label: "My Channel", href: "/dashboard/channel" },
+  { icon: LayoutDashboard, label: "Home", href: "/dashboard" },
+  { icon: PlayCircle, label: "Channel", href: "/dashboard/channel" },
   { icon: Film, label: "Videos", href: "/dashboard/videos" },
+  { icon: Sparkles, label: "AI Studio", href: "/dashboard/ai-tools" },
   { icon: Search, label: "Discovery", href: "/dashboard/keywords" },
   { icon: Users, label: "Competitors", href: "/dashboard/competitors" },
-  { icon: Sparkles, label: "AI Studio", href: "/dashboard/ai-tools" },
-  { icon: Settings, label: "Settings", href: "/dashboard/settings" },
 ];
 
 const DashboardSidebar = () => {
@@ -37,35 +33,27 @@ const DashboardSidebar = () => {
   const { profile } = useProfile();
   const location = useLocation();
 
-  // Initialize state from localStorage
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
   });
 
-  // Persist state to localStorage
   useEffect(() => {
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isCollapsed));
   }, [isCollapsed]);
 
-  // Toggle handler
-  const handleToggle = () => {
-    setIsCollapsed((prev) => !prev);
-  };
-
-  const isFreeTier = profile?.subscription_tier === "free";
+  const handleToggle = () => setIsCollapsed((prev) => !prev);
 
   return (
     <aside
       className={cn(
         "fixed left-0 top-0 h-screen flex flex-col z-40",
-        "bg-gradient-to-b from-[#0f0f1a] via-[#121220] to-[#0a0a14]",
-        "border-r border-white/5",
+        "bg-background border-r border-border/50",
         "transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-16" : "w-64"
+        isCollapsed ? "w-16" : "w-56"
       )}
     >
-      {/* Toggle Button - Positioned at top right edge */}
+      {/* Toggle */}
       <button
         type="button"
         onClick={handleToggle}
@@ -73,36 +61,30 @@ const DashboardSidebar = () => {
           "absolute -right-3 top-6 z-50",
           "w-6 h-6 rounded-full",
           "flex items-center justify-center",
-          "bg-[#252542] hover:bg-[#2D2D4A]",
-          "border border-[#2D2D4A]",
+          "bg-muted hover:bg-muted/80",
+          "border border-border",
           "text-muted-foreground hover:text-foreground",
-          "transition-all duration-200",
-          "cursor-pointer shadow-lg"
+          "transition-all duration-200 cursor-pointer"
         )}
-        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        {isCollapsed ? (
-          <ChevronRight className="w-3.5 h-3.5" />
-        ) : (
-          <ChevronLeft className="w-3.5 h-3.5" />
-        )}
+        {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>
 
-      {/* Logo Section */}
+      {/* Logo */}
       <div
         className={cn(
-          "flex items-center h-16 border-b border-white/5",
+          "flex items-center h-14 border-b border-border/50",
           "transition-all duration-300",
           isCollapsed ? "px-3 justify-center" : "px-4"
         )}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-            <span className="text-xl font-bold text-primary-foreground">Z</span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
+            <span className="text-sm font-bold text-primary-foreground">Z</span>
           </div>
           <span
             className={cn(
-              "text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent",
+              "text-lg font-semibold gradient-text",
               "transition-all duration-300",
               isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
             )}
@@ -112,10 +94,11 @@ const DashboardSidebar = () => {
         </div>
       </div>
 
-      {/* Navigation Section */}
+      {/* Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.href;
+          const isActive = location.pathname === item.href || 
+            (item.href !== "/dashboard" && location.pathname.startsWith(item.href));
           const Icon = item.icon;
 
           return (
@@ -123,17 +106,15 @@ const DashboardSidebar = () => {
               <NavLink
                 to={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-xl",
-                  "text-sm font-medium",
-                  "transition-all duration-200",
-                  "cursor-pointer",
+                  "flex items-center gap-3 px-3 py-2 rounded-lg",
+                  "text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-primary/15 text-primary shadow-[0_0_15px_rgba(124,58,237,0.15)]"
-                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground",
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                   isCollapsed && "justify-center px-0"
                 )}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <Icon className="w-[18px] h-[18px] shrink-0" />
                 <span
                   className={cn(
                     "whitespace-nowrap transition-all duration-300",
@@ -144,24 +125,19 @@ const DashboardSidebar = () => {
                 </span>
               </NavLink>
 
-              {/* Tooltip - Only visible when collapsed */}
+              {/* Tooltip */}
               {isCollapsed && (
                 <div
                   className={cn(
-                    "absolute left-full top-1/2 -translate-y-1/2 ml-3",
-                    "px-2.5 py-1.5 rounded-md",
-                    "bg-[#1a1a2e] border border-white/10",
-                    "text-sm font-medium text-foreground",
-                    "whitespace-nowrap",
+                    "absolute left-full top-1/2 -translate-y-1/2 ml-2",
+                    "px-2 py-1 rounded-md",
+                    "bg-popover border border-border",
+                    "text-xs font-medium text-foreground",
                     "opacity-0 invisible group-hover:opacity-100 group-hover:visible",
-                    "transition-all duration-200",
-                    "pointer-events-none",
-                    "shadow-xl z-50"
+                    "transition-all duration-150 pointer-events-none z-50"
                   )}
                 >
                   {item.label}
-                  {/* Tooltip arrow */}
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45" />
                 </div>
               )}
             </div>
@@ -169,152 +145,108 @@ const DashboardSidebar = () => {
         })}
       </nav>
 
-      {/* Upgrade Button for Free Users */}
-      {isFreeTier && (
-        <div className={cn("px-2 mb-3", isCollapsed && "px-1")}>
-          <div className="relative group">
-            <Button
-              className={cn(
-                "w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground",
-                isCollapsed ? "px-0" : "gap-2"
-              )}
-              size={isCollapsed ? "icon" : "default"}
-            >
-              <Crown className="w-4 h-4 flex-shrink-0" />
-              <span
-                className={cn(
-                  "transition-all duration-300",
-                  isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
-                )}
-              >
-                Upgrade to Pro
-              </span>
-            </Button>
-
-            {/* Tooltip for upgrade button when collapsed */}
-            {isCollapsed && (
-              <div
-                className={cn(
-                  "absolute left-full top-1/2 -translate-y-1/2 ml-3",
-                  "px-2.5 py-1.5 rounded-md",
-                  "bg-[#1a1a2e] border border-white/10",
-                  "text-sm font-medium text-foreground",
-                  "whitespace-nowrap",
-                  "opacity-0 invisible group-hover:opacity-100 group-hover:visible",
-                  "transition-all duration-200",
-                  "pointer-events-none",
-                  "shadow-xl z-50"
-                )}
-              >
-                Upgrade to Pro
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45" />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* User Section */}
-      <div className="border-t border-white/5 p-3">
-        {/* User Info */}
-        <div className="relative group mb-3">
-          <div
+      {/* Bottom section */}
+      <div className="border-t border-border/50 p-2 space-y-1">
+        {/* Settings */}
+        <div className="relative group">
+          <NavLink
+            to="/dashboard/settings"
             className={cn(
-              "flex items-center gap-3 p-2 rounded-xl",
-              "transition-all duration-200",
-              isCollapsed && "justify-center p-0"
+              "flex items-center gap-3 px-3 py-2 rounded-lg",
+              "text-sm font-medium transition-all duration-200",
+              location.pathname === "/dashboard/settings"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              isCollapsed && "justify-center px-0"
             )}
           >
-            {/* Avatar */}
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-sm flex-shrink-0">
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt="Avatar"
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                user?.email?.charAt(0).toUpperCase() || "U"
-              )}
-            </div>
-
-            {/* User details - hidden when collapsed */}
-            <div
+            <Settings className="w-[18px] h-[18px] shrink-0" />
+            <span
               className={cn(
-                "flex-1 min-w-0 transition-all duration-300",
+                "whitespace-nowrap transition-all duration-300",
                 isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
               )}
             >
-              <div className="font-medium text-sm text-foreground truncate">
-                {profile?.full_name || "User"}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {user?.email}
-              </div>
-            </div>
-          </div>
-
-          {/* Tooltip for user info when collapsed */}
+              Settings
+            </span>
+          </NavLink>
           {isCollapsed && (
             <div
               className={cn(
-                "absolute left-full top-1/2 -translate-y-1/2 ml-3",
-                "px-2.5 py-1.5 rounded-md",
-                "bg-[#1a1a2e] border border-white/10",
-                "text-sm text-foreground",
-                "whitespace-nowrap",
+                "absolute left-full top-1/2 -translate-y-1/2 ml-2",
+                "px-2 py-1 rounded-md bg-popover border border-border",
+                "text-xs font-medium text-foreground",
                 "opacity-0 invisible group-hover:opacity-100 group-hover:visible",
-                "transition-all duration-200",
-                "pointer-events-none",
-                "shadow-xl z-50"
+                "transition-all duration-150 pointer-events-none z-50"
               )}
             >
-              <div className="font-medium">{profile?.full_name || "User"}</div>
-              <div className="text-xs text-muted-foreground">{user?.email}</div>
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45" />
+              Settings
             </div>
           )}
         </div>
 
-        {/* Sign Out Button */}
+        {/* User */}
+        <div
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-lg",
+            isCollapsed && "justify-center px-0"
+          )}
+        >
+          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium shrink-0 overflow-hidden">
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt="Avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              user?.email?.charAt(0).toUpperCase() || "U"
+            )}
+          </div>
+          <div
+            className={cn(
+              "flex-1 min-w-0 transition-all duration-300",
+              isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
+            )}
+          >
+            <div className="text-sm font-medium truncate">
+              {profile?.full_name || "User"}
+            </div>
+          </div>
+        </div>
+
+        {/* Sign out */}
         <div className="relative group">
           <Button
             variant="ghost"
             onClick={signOut}
             className={cn(
-              "w-full text-muted-foreground hover:text-foreground hover:bg-white/5",
-              isCollapsed ? "px-0" : "justify-start gap-3"
+              "w-full text-muted-foreground hover:text-foreground hover:bg-muted/50",
+              isCollapsed ? "px-0 justify-center" : "justify-start gap-3"
             )}
-            size={isCollapsed ? "icon" : "default"}
+            size="sm"
           >
-            <LogOut className="w-4 h-4 flex-shrink-0" />
+            <LogOut className="w-[18px] h-[18px] shrink-0" />
             <span
               className={cn(
                 "transition-all duration-300",
                 isCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"
               )}
             >
-              Sign Out
+              Sign out
             </span>
           </Button>
-
-          {/* Tooltip for sign out when collapsed */}
           {isCollapsed && (
             <div
               className={cn(
-                "absolute left-full top-1/2 -translate-y-1/2 ml-3",
-                "px-2.5 py-1.5 rounded-md",
-                "bg-[#1a1a2e] border border-white/10",
-                "text-sm font-medium text-foreground",
-                "whitespace-nowrap",
+                "absolute left-full top-1/2 -translate-y-1/2 ml-2",
+                "px-2 py-1 rounded-md bg-popover border border-border",
+                "text-xs font-medium text-foreground",
                 "opacity-0 invisible group-hover:opacity-100 group-hover:visible",
-                "transition-all duration-200",
-                "pointer-events-none",
-                "shadow-xl z-50"
+                "transition-all duration-150 pointer-events-none z-50"
               )}
             >
-              Sign Out
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-[#1a1a2e] border-l border-b border-white/10 rotate-45" />
+              Sign out
             </div>
           )}
         </div>
