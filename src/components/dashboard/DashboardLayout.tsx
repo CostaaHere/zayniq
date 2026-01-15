@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardHeader from "./DashboardHeader";
-import MainContentWrapper from "@/components/layout/MainContentWrapper";
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
@@ -9,25 +8,21 @@ interface DashboardLayoutProps {
   title: string;
 }
 
-// Storage key must match the one in DashboardSidebar
 const SIDEBAR_STORAGE_KEY = "sidebarCollapsed";
 
 const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
-  // Read sidebar state to adjust main content margin
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Listen for localStorage changes to sync sidebar state
   useEffect(() => {
     const handleStorageChange = () => {
       const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
       setSidebarCollapsed(stored === "true");
     };
 
-    // Also poll for changes since storage events don't fire in same tab
     const interval = setInterval(() => {
       const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
       setSidebarCollapsed(stored === "true");
@@ -42,12 +37,12 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background flex w-full">
-      {/* Desktop Sidebar - Self-contained with its own state */}
+      {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <DashboardSidebar />
       </div>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Overlay */}
       <div
         className={cn(
           "fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300",
@@ -66,11 +61,11 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
         <DashboardSidebar />
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <div
         className={cn(
           "flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out",
-          sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
+          sidebarCollapsed ? "lg:ml-16" : "lg:ml-56"
         )}
       >
         <DashboardHeader
@@ -78,9 +73,10 @@ const DashboardLayout = ({ children, title }: DashboardLayoutProps) => {
           onMobileMenuToggle={() => setMobileMenuOpen((v) => !v)}
         />
 
-        {/* Content container with centered wrapper */}
-        <main className="flex-1 flex justify-center py-4 lg:py-6">
-          <MainContentWrapper>{children}</MainContentWrapper>
+        <main className="flex-1 px-4 md:px-6 lg:px-8 py-6 lg:py-8">
+          <div className="max-w-[1200px] mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
