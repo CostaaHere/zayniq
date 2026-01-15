@@ -10,60 +10,65 @@ const HeroSection = () => {
       <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-accent/6 rounded-full blur-[100px] animate-pulse-slow" style={{ animationDelay: "2s" }} />
       
       <div className="container relative z-10">
-        <div className="max-w-3xl mx-auto text-center">
-          {/* Minimal badge */}
-          <div className="animate-fade-up inline-flex items-center gap-2 px-3 py-1.5 mb-8 text-sm text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-            <span>AI-Powered Growth Intelligence</span>
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Minimal badge - secondary importance */}
+          <div className="animate-fade-up inline-flex items-center gap-2 px-3 py-1.5 mb-10 text-sm text-muted-foreground/70">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent/60" />
+            <span>Trusted by 50,000+ creators</span>
           </div>
 
-          {/* Bold headline */}
-          <h1 className="animate-fade-up-delay-1 text-display-xl md:text-[5.5rem] font-semibold leading-[1.05] tracking-tight mb-8">
-            Your channel's
+          {/* HERO MESSAGE - Primary focus, outcome-first */}
+          <h1 className="animate-fade-up-delay-1 text-[3.5rem] md:text-[5rem] lg:text-[6rem] font-semibold leading-[1.02] tracking-tight mb-8">
+            <span className="text-foreground">Your YouTube</span>
             <br />
-            <span className="gradient-text">intelligence partner</span>
+            <span className="gradient-text">Growth Partner</span>
           </h1>
 
-          {/* Clean subheadline */}
-          <p className="animate-fade-up-delay-2 text-xl md:text-2xl text-muted-foreground leading-relaxed max-w-2xl mx-auto mb-12">
-            Understand your audience, outsmart competitors, and grow faster with AI that learns your channel.
+          {/* Emotional promise - single line */}
+          <p className="animate-fade-up-delay-2 text-xl md:text-2xl text-muted-foreground font-light max-w-xl mx-auto mb-14">
+            Trained on <span className="text-foreground font-medium">your</span> channel, not the internet.
           </p>
 
-          {/* Single focused CTA */}
-          <div className="animate-fade-up-delay-3 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* Single primary CTA */}
+          <div className="animate-fade-up-delay-3">
             <Button 
               variant="hero" 
               size="xl" 
-              className="btn-glow text-base px-8 h-14" 
+              className="btn-glow text-base px-10 h-14 font-medium" 
               asChild
             >
               <Link to="/signup">
-                Start for free
+                Start Growing for Free
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
-            <span className="text-sm text-muted-foreground">
-              No credit card required
-            </span>
+            
+            {/* Friction reducer - tertiary */}
+            <p className="mt-5 text-sm text-muted-foreground/60">
+              No credit card · Connect in 30 seconds
+            </p>
           </div>
         </div>
+      </div>
 
-        {/* Stats row - minimal */}
-        <div className="animate-fade-up-delay-3 mt-24 pt-12 border-t border-border/50">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-16 max-w-3xl mx-auto">
-            {[
-              { value: "50K+", label: "Creators" },
-              { value: "2M+", label: "Videos analyzed" },
-              { value: "500M+", label: "Views tracked" },
-              { value: "35%", label: "Avg. growth" },
-            ].map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-3xl md:text-4xl font-semibold text-foreground mb-1">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-muted-foreground">{stat.label}</div>
-              </div>
-            ))}
+      {/* Single powerful proof point - positioned at bottom */}
+      <div className="absolute bottom-12 left-0 right-0">
+        <div className="container">
+          <div className="animate-fade-up-delay-3 flex items-center justify-center gap-16 text-center">
+            <div>
+              <div className="text-3xl md:text-4xl font-semibold text-foreground">35%</div>
+              <div className="text-sm text-muted-foreground/60">avg. growth increase</div>
+            </div>
+            <div className="w-px h-10 bg-border" />
+            <div>
+              <div className="text-3xl md:text-4xl font-semibold text-foreground">2M+</div>
+              <div className="text-sm text-muted-foreground/60">videos analyzed</div>
+            </div>
+            <div className="w-px h-10 bg-border hidden sm:block" />
+            <div className="hidden sm:block">
+              <div className="text-3xl md:text-4xl font-semibold text-foreground">500M+</div>
+              <div className="text-sm text-muted-foreground/60">views tracked</div>
+            </div>
           </div>
         </div>
       </div>

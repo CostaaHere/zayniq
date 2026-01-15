@@ -7,34 +7,34 @@ const CTASection = () => {
   return (
     <section className="py-32 relative">
       {/* Subtle gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/3 to-transparent" />
       
       <div className="container relative">
         <ScrollAnimation>
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-title md:text-display font-semibold mb-6">
-              Ready to grow smarter?
+          <div className="max-w-xl mx-auto text-center">
+            {/* Single emotional promise */}
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-semibold mb-6 leading-tight">
+              Stop guessing.
+              <br />
+              <span className="text-muted-foreground">Start growing.</span>
             </h2>
             
-            <p className="text-lg text-muted-foreground mb-10">
-              Join 50,000+ creators who trust ZainIQ to understand their channel and unlock their full potential.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            {/* Single primary action */}
+            <div className="mt-10">
               <Button 
                 size="xl" 
-                className="bg-foreground text-background hover:bg-foreground/90 h-14 px-8 text-base" 
+                className="bg-foreground text-background hover:bg-foreground/90 h-14 px-10 text-base font-medium" 
                 asChild
               >
                 <Link to="/signup">
-                  Get started for free
+                  Connect your channel
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Link>
               </Button>
             </div>
 
-            <p className="mt-6 text-sm text-muted-foreground">
-              No credit card required · 14-day free trial · Cancel anytime
+            <p className="mt-5 text-sm text-muted-foreground/60">
+              Free to start · No credit card required
             </p>
           </div>
         </ScrollAnimation>
