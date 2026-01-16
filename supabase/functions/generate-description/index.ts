@@ -35,16 +35,31 @@ serve(async (req) => {
       );
     }
 
-    const { title, summary, keyPoints, links, includeTimestamps } = await req.json();
+    const { title, summary, keyPoints, links, includeTimestamps, channelDNA } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating description for user:", user.id, "title:", title);
+    console.log("Generating description for user:", user.id, "title:", title, "with DNA:", !!channelDNA);
 
-    const systemPrompt = `You are a YouTube description expert. Generate an optimized video description that maximizes engagement and SEO.
+    // Build DNA-aware system prompt
+    let dnaContext = "";
+    if (channelDNA) {
+      dnaContext = `
+IMPORTANT - CHANNEL DNA (Personalization Context):
+${channelDNA}
+
+You MUST write this description in the channel's unique voice and style.
+Match their tone, vocabulary, and communication patterns exactly.
+Do NOT generate a generic description - it should feel authentically "theirs".
+`;
+    }
+
+    const systemPrompt = `You are a YouTube description expert specializing in personalized, channel-specific content.
+${dnaContext}
+Generate an optimized video description that maximizes engagement and SEO.
 
 Rules:
 - Start with a compelling 2-3 sentence hook (this shows in preview)
@@ -53,6 +68,7 @@ Rules:
 - ${includeTimestamps ? "Include realistic timestamp sections (e.g., 0:00 Intro, 1:23 Topic, etc.)" : "Do NOT include timestamps"}
 - End with a call-to-action for subscribing
 - Be conversational but professional
+${channelDNA ? `- CRITICAL: Write in the channel's authentic voice and style` : ""}
 
 Return a JSON object with this exact structure:
 {
@@ -123,7 +139,7 @@ ${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"
       throw new Error("Failed to parse AI response");
     }
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ ...result, personalizedWithDNA: !!channelDNA }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
