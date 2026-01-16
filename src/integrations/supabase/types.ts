@@ -53,6 +53,95 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_dna: {
+        Row: {
+          analyzed_at: string
+          audience_demographics: Json | null
+          avg_comments: number | null
+          avg_engagement_rate: number | null
+          avg_likes: number | null
+          avg_title_length: number | null
+          avg_views: number | null
+          channel_id: string | null
+          content_categories: Json | null
+          created_at: string
+          dna_summary: string | null
+          emoji_usage: string | null
+          id: string
+          peak_engagement_times: Json | null
+          power_words: Json | null
+          title_formulas: Json | null
+          title_patterns: Json | null
+          tone_profile: Json | null
+          top_performing_topics: Json | null
+          updated_at: string
+          user_id: string
+          videos_analyzed: number
+          view_to_like_ratio: number | null
+          vocabulary_style: string | null
+        }
+        Insert: {
+          analyzed_at?: string
+          audience_demographics?: Json | null
+          avg_comments?: number | null
+          avg_engagement_rate?: number | null
+          avg_likes?: number | null
+          avg_title_length?: number | null
+          avg_views?: number | null
+          channel_id?: string | null
+          content_categories?: Json | null
+          created_at?: string
+          dna_summary?: string | null
+          emoji_usage?: string | null
+          id?: string
+          peak_engagement_times?: Json | null
+          power_words?: Json | null
+          title_formulas?: Json | null
+          title_patterns?: Json | null
+          tone_profile?: Json | null
+          top_performing_topics?: Json | null
+          updated_at?: string
+          user_id: string
+          videos_analyzed?: number
+          view_to_like_ratio?: number | null
+          vocabulary_style?: string | null
+        }
+        Update: {
+          analyzed_at?: string
+          audience_demographics?: Json | null
+          avg_comments?: number | null
+          avg_engagement_rate?: number | null
+          avg_likes?: number | null
+          avg_title_length?: number | null
+          avg_views?: number | null
+          channel_id?: string | null
+          content_categories?: Json | null
+          created_at?: string
+          dna_summary?: string | null
+          emoji_usage?: string | null
+          id?: string
+          peak_engagement_times?: Json | null
+          power_words?: Json | null
+          title_formulas?: Json | null
+          title_patterns?: Json | null
+          tone_profile?: Json | null
+          top_performing_topics?: Json | null
+          updated_at?: string
+          user_id?: string
+          videos_analyzed?: number
+          view_to_like_ratio?: number | null
+          vocabulary_style?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_dna_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channels: {
         Row: {
           channel_name: string

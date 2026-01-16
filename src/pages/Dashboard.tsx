@@ -2,6 +2,8 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useYouTubeAnalytics } from "@/hooks/useYouTubeAnalytics";
+import { useChannelDNA } from "@/hooks/useChannelDNA";
+import { ChannelDNAPanel } from "@/components/dashboard/ChannelDNAPanel";
 import { 
   ArrowRight,
   RefreshCw,
@@ -11,7 +13,8 @@ import {
   Zap,
   Target,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Dna
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -31,6 +34,8 @@ const Dashboard = () => {
     formatViewCount,
     formatSubscriberCount,
   } = useYouTubeAnalytics();
+  
+  const { hasDNA, analyzing } = useChannelDNA();
 
   const firstName = profile?.full_name?.split(" ")[0] || user?.user_metadata?.full_name?.split(" ")[0] || "Creator";
 
@@ -193,6 +198,11 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Channel DNA Section */}
+            <div className="mb-12">
+              <ChannelDNAPanel />
+            </div>
+
             {/* Intelligent Workflows - Not tool buttons */}
             <div className="mb-12">
               <h3 className="text-lg font-semibold mb-6">What would you like to do?</h3>
@@ -207,9 +217,19 @@ const Dashboard = () => {
                     <Sparkles className="w-6 h-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-semibold mb-0.5">Optimize my next video</div>
+                    <div className="font-semibold mb-0.5 flex items-center gap-2">
+                      Optimize my next video
+                      {hasDNA && (
+                        <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                          DNA-Powered
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-muted-foreground">
-                      Get AI-powered titles, descriptions, and tags tailored to your audience
+                      {hasDNA 
+                        ? "Get personalized titles, descriptions, and tags matched to your voice"
+                        : "Get AI-powered titles, descriptions, and tags tailored to your audience"
+                      }
                     </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />

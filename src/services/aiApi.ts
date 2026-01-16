@@ -94,33 +94,37 @@ async function handleApiResponse<T>(response: { data: T | null; error: { message
 
 /**
  * Generate viral YouTube titles
+ * @param channelDNA - Optional Channel DNA string for personalization
  */
 export async function generateTitles(
   topic: string,
   keyword?: string,
   tone: string = 'engaging',
-  includeEmoji: boolean = false
+  includeEmoji: boolean = false,
+  channelDNA?: string
 ): Promise<GeneratedTitle[]> {
   const response = await supabase.functions.invoke('generate-titles', {
-    body: { topic, keyword, tone, includeEmoji }
+    body: { topic, keyword, tone, includeEmoji, channelDNA }
   });
   
-  const data = await handleApiResponse<{ titles: GeneratedTitle[] }>(response);
+  const data = await handleApiResponse<{ titles: GeneratedTitle[]; personalizedWithDNA?: boolean }>(response);
   return data.titles;
 }
 
 /**
  * Generate SEO-optimized video description
+ * @param channelDNA - Optional Channel DNA string for personalization
  */
 export async function generateDescription(
   title: string,
   summary: string,
   keyPoints?: string[],
   links?: string[],
-  includeTimestamps: boolean = true
+  includeTimestamps: boolean = true,
+  channelDNA?: string
 ): Promise<GeneratedDescription> {
   const response = await supabase.functions.invoke('generate-description', {
-    body: { title, summary, keyPoints, links, includeTimestamps }
+    body: { title, summary, keyPoints, links, includeTimestamps, channelDNA }
   });
   
   return handleApiResponse<GeneratedDescription>(response);

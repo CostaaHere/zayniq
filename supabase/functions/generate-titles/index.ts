@@ -35,16 +35,30 @@ serve(async (req) => {
       );
     }
 
-    const { topic, keyword, tone, includeEmoji } = await req.json();
+    const { topic, keyword, tone, includeEmoji, channelDNA } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating titles for user:", user.id, "topic:", topic);
+    console.log("Generating titles for user:", user.id, "topic:", topic, "with DNA:", !!channelDNA);
 
-    const systemPrompt = `You are a YouTube title expert. Generate exactly 10 engaging, click-worthy video titles.
+    // Build DNA-aware system prompt
+    let dnaContext = "";
+    if (channelDNA) {
+      dnaContext = `
+IMPORTANT - CHANNEL DNA (Personalization Context):
+${channelDNA}
+
+You MUST adapt your title suggestions to match this channel's unique voice, style, and patterns. 
+Do NOT generate generic titles. Every title should feel like it belongs on THIS specific channel.
+`;
+    }
+
+    const systemPrompt = `You are a YouTube title expert specializing in personalized, channel-specific titles.
+${dnaContext}
+Generate exactly 10 engaging, click-worthy video titles.
 
 Rules:
 - Each title should be under 60 characters for optimal display
@@ -53,6 +67,7 @@ Rules:
 - ${includeEmoji ? "Include 1-2 relevant emojis in each title" : "Do NOT include any emojis"}
 - ${keyword ? `Naturally incorporate the keyword "${keyword}" in at least 7 titles` : ""}
 - Vary the title structures for diversity
+${channelDNA ? `- CRITICAL: Match the channel's voice, use their preferred power words, and follow their successful title patterns` : ""}
 
 Power words to consider: Ultimate, Essential, Secret, Proven, Amazing, Incredible, Simple, Easy, Fast, Complete, Free, Best, Top, New
 
@@ -120,7 +135,7 @@ ${includeEmoji ? "Include emojis" : "No emojis"}`;
       throw new Error("Failed to parse AI response");
     }
 
-    return new Response(JSON.stringify({ titles }), {
+    return new Response(JSON.stringify({ titles, personalizedWithDNA: !!channelDNA }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
