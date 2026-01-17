@@ -6,6 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface TitleInsight {
+  title: string;
+  powerWords: string[];
+  psychologyExplanation: string;
+  algorithmExplanation: string;
+  dnaAlignment: string;
+  ctrPotential: "high" | "medium" | "low";
+}
+
+interface TitleCategory {
+  category: string;
+  categoryDescription: string;
+  icon: string;
+  titles: TitleInsight[];
+}
+
+interface ABTestCluster {
+  clusterName: string;
+  targetAudience: string;
+  psychologicalTrigger: string;
+  titles: TitleInsight[];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -42,46 +65,128 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating titles for user:", user.id, "topic:", topic, "with DNA:", !!channelDNA);
+    console.log("Generating intent-based titles for user:", user.id, "topic:", topic, "with DNA:", !!channelDNA);
 
-    // Build DNA-aware system prompt
+    // Build comprehensive DNA-aware system prompt
     let dnaContext = "";
+    let dnaPersonalization = "";
+    
     if (channelDNA) {
       dnaContext = `
-IMPORTANT - CHANNEL DNA (Personalization Context):
+CRITICAL - CHANNEL DNA (You MUST personalize ALL titles based on this):
 ${channelDNA}
 
-You MUST adapt your title suggestions to match this channel's unique voice, style, and patterns. 
-Do NOT generate generic titles. Every title should feel like it belongs on THIS specific channel.
+PERSONALIZATION RULES:
+- Every title MUST feel like it was written specifically for this channel
+- Use the channel's preferred power words and vocabulary style
+- Match the channel's proven title patterns and formulas
+- Align with the audience demographics and psychology
+- Reference the channel's top-performing topics where relevant
+- NEVER generate generic, one-size-fits-all titles
 `;
+      dnaPersonalization = `Explain specifically how this title aligns with the channel's DNA - reference specific elements like their tone, vocabulary, audience, or successful patterns.`;
+    } else {
+      dnaPersonalization = `Note: No Channel DNA available. Explain how this title could be personalized once the creator analyzes their channel.`;
     }
 
-    const systemPrompt = `You are a YouTube title expert specializing in personalized, channel-specific titles.
+    const systemPrompt = `You are an elite YouTube growth strategist with deep expertise in:
+- Click-Through Rate optimization psychology
+- YouTube algorithm mechanics
+- Viewer behavior patterns
+- Emotional engagement triggers
+
 ${dnaContext}
-Generate exactly 10 engaging, click-worthy video titles.
 
-Rules:
-- Each title should be under 60 characters for optimal display
-- Use proven title formulas: numbers, how-to, questions, power words
-- Match the requested tone exactly
-- ${includeEmoji ? "Include 1-2 relevant emojis in each title" : "Do NOT include any emojis"}
-- ${keyword ? `Naturally incorporate the keyword "${keyword}" in at least 7 titles` : ""}
-- Vary the title structures for diversity
-${channelDNA ? `- CRITICAL: Match the channel's voice, use their preferred power words, and follow their successful title patterns` : ""}
+You are generating an INTENT-BASED TITLE INTELLIGENCE report - not just titles, but strategic insights.
 
-Power words to consider: Ultimate, Essential, Secret, Proven, Amazing, Incredible, Simple, Easy, Fast, Complete, Free, Best, Top, New
+GENERATE TITLES IN 5 PSYCHOLOGICAL CATEGORIES:
 
-Return ONLY a JSON array of 10 title objects in this exact format:
-[{"title": "Your Title Here", "powerWords": ["word1", "word2"]}]
+1. CURIOSITY-DRIVEN TITLES (3 titles)
+   - Create powerful open loops that demand closure
+   - Trigger unanswered questions in the viewer's mind
+   - Use curiosity tension without clickbait lies
+   - Make viewers feel they're missing something important
 
-Do not include any explanation or markdown, just the JSON array.`;
+2. AUTHORITY TITLES (3 titles)
+   - Position the creator as the definitive expert
+   - Signal insider knowledge and credibility
+   - Use authority language: "The Truth About", "What [Experts] Won't Tell You", "After [X] Years"
+   - Best for educational and niche channels
 
-    const userPrompt = `Generate 10 YouTube titles for this video:
+3. EMOTIONAL TITLES (3 titles)
+   - Trigger specific emotions: fear, excitement, relief, urgency, or aspiration
+   - Emotion must align with the topic and audience psychology
+   - Use visceral language that creates immediate reaction
+   - Connect to viewer's pain points or desires
 
-Topic: ${topic}
-${keyword ? `Target keyword: ${keyword}` : ""}
-Tone: ${tone}
-${includeEmoji ? "Include emojis" : "No emojis"}`;
+4. SHORT-FORM OPTIMIZED TITLES (3 titles)
+   - Maximum 40 characters for mobile discovery
+   - High impact in minimal words
+   - Optimized for Shorts, suggested feeds, and mobile browse
+   - Front-load the hook
+
+5. A/B TEST CLUSTERS (2 clusters of 2 titles each)
+   - Each cluster targets a different psychological trigger
+   - Provide variation sets for testing
+   - Explain which audience segment each cluster targets
+
+FOR EVERY TITLE, PROVIDE:
+- psychologyExplanation: Why this works psychologically (what mental triggers it activates)
+- algorithmExplanation: How YouTube's algorithm will favor this (CTR signals, watch time correlation, suggested video potential)
+- dnaAlignment: ${dnaPersonalization}
+- powerWords: Array of power words used
+- ctrPotential: "high", "medium", or "low" based on expected CTR
+
+TITLE RULES:
+- ${includeEmoji ? "Include 1-2 strategic emojis that add meaning" : "Do NOT include any emojis"}
+- ${keyword ? `Naturally incorporate "${keyword}" - preferably early in the title` : ""}
+- Match the ${tone} tone
+- Character limit: 60 for standard, 40 for short-form
+- NO generic titles - every title must feel crafted for this specific creator
+
+Return a JSON object with this exact structure:
+{
+  "categories": [
+    {
+      "category": "Curiosity-Driven",
+      "categoryDescription": "Titles that create open loops and trigger viewer curiosity",
+      "icon": "help-circle",
+      "titles": [
+        {
+          "title": "...",
+          "powerWords": ["word1", "word2"],
+          "psychologyExplanation": "...",
+          "algorithmExplanation": "...",
+          "dnaAlignment": "...",
+          "ctrPotential": "high"
+        }
+      ]
+    }
+  ],
+  "abTestClusters": [
+    {
+      "clusterName": "Fear of Missing Out",
+      "targetAudience": "Competitive creators worried about falling behind",
+      "psychologicalTrigger": "Loss aversion and social proof",
+      "titles": [...]
+    }
+  ],
+  "topPick": {
+    "title": "...",
+    "reason": "Why this is the strategically best title for this specific video and channel"
+  }
+}
+
+Return ONLY valid JSON. No markdown, no explanation outside the JSON.`;
+
+    const userPrompt = `Generate an Intent-Based Title Intelligence report for:
+
+VIDEO TOPIC: ${topic}
+${keyword ? `TARGET KEYWORD: ${keyword}` : ""}
+TONE: ${tone}
+${includeEmoji ? "EMOJIS: Yes" : "EMOJIS: No"}
+
+Remember: This creator needs titles that feel personally crafted for their channel, not generic suggestions.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -99,7 +204,6 @@ ${includeEmoji ? "Include emojis" : "No emojis"}`;
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
       console.error("AI gateway error:", response.status);
       
       if (response.status === 429) {
@@ -122,24 +226,28 @@ ${includeEmoji ? "Include emojis" : "No emojis"}`;
     const content = data.choices?.[0]?.message?.content;
 
     // Parse the JSON response
-    let titles;
+    let intelligence;
     try {
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        titles = JSON.parse(jsonMatch[0]);
+        intelligence = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error("No valid JSON array found in response");
+        throw new Error("No valid JSON found in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse titles");
+      console.error("Failed to parse intelligence response:", parseError);
       throw new Error("Failed to parse AI response");
     }
 
-    return new Response(JSON.stringify({ titles, personalizedWithDNA: !!channelDNA }), {
+    return new Response(JSON.stringify({ 
+      intelligence, 
+      personalizedWithDNA: !!channelDNA,
+      generatedAt: new Date().toISOString()
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in generate-titles");
+    console.error("Error in generate-titles:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to generate titles";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
