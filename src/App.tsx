@@ -26,6 +26,7 @@ import ThumbnailGenerator from "./pages/ThumbnailGenerator";
 import ContentIdeasGenerator from "./pages/ContentIdeasGenerator";
 import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
+import YouTubeCoach from "./pages/YouTubeCoach";
 import NotFound from "./pages/NotFound";
 
 
@@ -154,6 +155,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/coach"
+              element={
+                <ProtectedRoute>
+                  <YouTubeCoach />
                 </ProtectedRoute>
               }
             />
