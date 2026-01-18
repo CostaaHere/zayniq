@@ -1,11 +1,10 @@
 import { cn } from "@/lib/utils";
+import DOMPurify from "dompurify";
 import { 
   Stethoscope, 
   AlertTriangle, 
   Calendar, 
   MessageSquare,
-  Bot,
-  User,
   ChartBar,
   Dna,
   Clock
@@ -43,7 +42,7 @@ const getCoachLabel = (type: CoachType) => {
   }
 };
 
-const formatMarkdown = (text: string) => {
+const formatMarkdown = (text: string): string => {
   // Simple markdown formatting
   let formatted = text
     // Bold
@@ -58,7 +57,13 @@ const formatMarkdown = (text: string) => {
     .replace(/\n\n/g, '</p><p class="mb-3 text-muted-foreground">')
     .replace(/\n/g, '<br />');
   
-  return `<p class="mb-3 text-muted-foreground">${formatted}</p>`;
+  const html = `<p class="mb-3 text-muted-foreground">${formatted}</p>`;
+  
+  // Sanitize the output to prevent XSS attacks
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'h2', 'h3', 'ul', 'ol', 'li', 'span'],
+    ALLOWED_ATTR: ['class'],
+  });
 };
 
 const CoachMessage = ({ response }: CoachMessageProps) => {
