@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Bot,
 } from "lucide-react";
 
 const SIDEBAR_STORAGE_KEY = "sidebarCollapsed";
@@ -23,6 +24,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Home", href: "/dashboard" },
   { icon: PlayCircle, label: "Channel", href: "/dashboard/channel" },
   { icon: Film, label: "Videos", href: "/dashboard/videos" },
+  { icon: Bot, label: "AI Coach", href: "/dashboard/coach" },
   { icon: Sparkles, label: "AI Studio", href: "/dashboard/ai-tools" },
   { icon: Search, label: "Discovery", href: "/dashboard/keywords" },
   { icon: Users, label: "Competitors", href: "/dashboard/competitors" },
