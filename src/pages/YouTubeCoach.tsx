@@ -131,9 +131,21 @@ const YouTubeCoach = () => {
           {/* Error Display */}
           {error && (
             <div className="px-6 pb-4">
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+              <Alert className="border-amber-500/30 bg-amber-500/10">
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                <AlertDescription className="text-amber-200">
+                  {error.includes("No video data") ? (
+                    <>
+                      No video data found. Please{" "}
+                      <Link to="/dashboard/channel" className="underline font-medium hover:text-amber-100">
+                        sync your YouTube channel
+                      </Link>{" "}
+                      first to get coaching advice.
+                    </>
+                  ) : (
+                    error
+                  )}
+                </AlertDescription>
               </Alert>
             </div>
           )}
@@ -143,6 +155,7 @@ const YouTubeCoach = () => {
             <CoachInput 
               onSubmit={handleCustomQuestion} 
               loading={loading}
+              disabled={needsSetup}
               placeholder={
                 needsSetup 
                   ? "Connect your channel first to ask questions..." 

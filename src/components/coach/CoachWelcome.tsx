@@ -1,9 +1,10 @@
+import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, TrendingUp, Target, Lightbulb } from "lucide-react";
 
-const CoachWelcome = () => {
+const CoachWelcome = forwardRef<HTMLDivElement>((_, ref) => {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center space-y-6">
+    <div ref={ref} className="flex flex-col items-center justify-center py-12 text-center space-y-6">
       {/* Coach Avatar */}
       <div className={cn(
         "relative w-20 h-20 rounded-2xl",
@@ -60,6 +61,8 @@ const CoachWelcome = () => {
       </p>
     </div>
   );
-};
+});
+
+CoachWelcome.displayName = "CoachWelcome";
 
 export default CoachWelcome;
