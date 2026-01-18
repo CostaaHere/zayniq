@@ -324,9 +324,18 @@ Provide a thorough, strategic answer.`;
     };
 
     // Call AI
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("[youtube-coach] LOVABLE_API_KEY not configured");
+      throw new Error("AI service not configured");
+    }
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
