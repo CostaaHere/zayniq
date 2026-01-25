@@ -5,9 +5,7 @@ import {
   AlertTriangle, 
   Calendar, 
   MessageSquare,
-  ChartBar,
-  Dna,
-  Clock
+  Dna
 } from "lucide-react";
 import type { CoachResponse, CoachType } from "@/hooks/useYouTubeCoach";
 import { format } from "date-fns";
@@ -34,30 +32,44 @@ const getCoachLabel = (type: CoachType) => {
     case "diagnosis":
       return "Channel Diagnosis";
     case "weakPoints":
-      return "Weak Points Analysis";
+      return "Growth Opportunities";
     case "nextContent":
       return "Content Strategy";
     case "custom":
-      return "Custom Question";
+      return "Your Question";
   }
 };
 
 const formatMarkdown = (text: string): string => {
-  // Simple markdown formatting
-  let formatted = text
-    // Bold
+  // Clean up any remaining system artifacts that shouldn't be shown
+  let cleaned = text
+    // Remove any internal assessment blocks that slipped through
+    .replace(/<!--[\s\S]*?-->/g, '')
+    // Remove any JSON blocks
+    .replace(/```json[\s\S]*?```/g, '')
+    .replace(/```[\s\S]*?```/g, '')
+    // Remove metric-style lines
+    .replace(/^(Risk Level|Confidence|Strategy Type|Bottleneck):.*$/gm, '')
+    .trim();
+
+  // Natural markdown formatting for conversational text
+  let formatted = cleaned
+    // Bold text
     .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground font-semibold">$1</strong>')
-    // Headers
-    .replace(/^## (.*?)$/gm, '<h2 class="text-lg font-bold text-foreground mt-6 mb-2 flex items-center gap-2">$1</h2>')
-    .replace(/^### (.*?)$/gm, '<h3 class="text-base font-semibold text-foreground mt-4 mb-2">$1</h3>')
-    // Lists
-    .replace(/^- (.*?)$/gm, '<li class="ml-4 list-disc text-muted-foreground">$1</li>')
-    .replace(/^(\d+)\. (.*?)$/gm, '<li class="ml-4 list-decimal text-muted-foreground">$2</li>')
-    // Newlines
-    .replace(/\n\n/g, '</p><p class="mb-3 text-muted-foreground">')
+    // Italic text
+    .replace(/\*(.*?)\*/g, '<em class="text-foreground/90">$1</em>')
+    // Headers - styled naturally
+    .replace(/^## (.*?)$/gm, '<h2 class="text-lg font-semibold text-foreground mt-6 mb-3">$1</h2>')
+    .replace(/^### (.*?)$/gm, '<h3 class="text-base font-medium text-foreground mt-5 mb-2">$1</h3>')
+    // Unordered lists
+    .replace(/^- (.*?)$/gm, '<li class="ml-4 list-disc text-muted-foreground leading-relaxed">$1</li>')
+    // Ordered lists
+    .replace(/^(\d+)\. (.*?)$/gm, '<li class="ml-4 list-decimal text-muted-foreground leading-relaxed">$2</li>')
+    // Paragraphs with good spacing
+    .replace(/\n\n/g, '</p><p class="mb-4 text-muted-foreground leading-relaxed">')
     .replace(/\n/g, '<br />');
   
-  const html = `<p class="mb-3 text-muted-foreground">${formatted}</p>`;
+  const html = `<p class="mb-4 text-muted-foreground leading-relaxed">${formatted}</p>`;
   
   // Sanitize the output to prevent XSS attacks
   return DOMPurify.sanitize(html, {
@@ -69,7 +81,7 @@ const formatMarkdown = (text: string): string => {
 const CoachMessage = ({ response }: CoachMessageProps) => {
   return (
     <div className="space-y-4">
-      {/* Analysis Type Badge */}
+      {/* Simple, clean header */}
       <div className="flex items-center justify-between">
         <div className={cn(
           "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
@@ -78,40 +90,18 @@ const CoachMessage = ({ response }: CoachMessageProps) => {
           {getCoachIcon(response.coachType)}
           {getCoachLabel(response.coachType)}
         </div>
-        <span className="text-xs text-muted-foreground">
-          {format(response.timestamp, "h:mm a")}
-        </span>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {response.metrics.hasDNA && (
+            <span className="inline-flex items-center gap-1 text-accent">
+              <Dna className="w-3 h-3" />
+              DNA-Enhanced
+            </span>
+          )}
+          <span>{format(response.timestamp, "h:mm a")}</span>
+        </div>
       </div>
 
-      {/* Metrics Bar */}
-      <div className="flex flex-wrap gap-4 p-3 rounded-lg bg-muted/30 border border-border/30">
-        <div className="flex items-center gap-2 text-sm">
-          <ChartBar className="w-4 h-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Videos:</span>
-          <span className="font-medium text-foreground">{response.metrics.videosAnalyzed}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Avg Views:</span>
-          <span className="font-medium text-foreground">{response.metrics.avgViews.toLocaleString()}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Engagement:</span>
-          <span className="font-medium text-foreground">{response.metrics.avgEngagement}%</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <Clock className="w-4 h-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Upload freq:</span>
-          <span className="font-medium text-foreground">Every {response.metrics.uploadFrequency} days</span>
-        </div>
-        {response.metrics.hasDNA && (
-          <div className="flex items-center gap-1.5 text-sm text-accent">
-            <Dna className="w-4 h-4" />
-            <span className="font-medium">DNA-Powered</span>
-          </div>
-        )}
-      </div>
-
-      {/* Response Content */}
+      {/* Clean, human-readable response */}
       <div 
         className="prose prose-invert prose-sm max-w-none"
         dangerouslySetInnerHTML={{ __html: formatMarkdown(response.response) }}

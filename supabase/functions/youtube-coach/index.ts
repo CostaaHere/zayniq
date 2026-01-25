@@ -158,10 +158,12 @@ serve(async (req: Request) => {
       avgDaysBetweenUploads = gaps.reduce((a, b) => a + b, 0) / gaps.length;
     }
 
-    // Build the ELITE intelligence pipeline prompt
+    // Build the ELITE intelligence pipeline prompt with HUMAN-FIRST communication
     const buildIntelligencePipelinePrompt = () => {
+      const creatorName = channelData?.channel_name?.split(/[^a-zA-Z]/)[0] || "there";
+      
       const dnaSummary = dnaData ? `
-CHANNEL DNA PROFILE:
+CHANNEL DNA PROFILE (use internally, don't expose):
 - Summary: ${dnaData.dna_summary || 'Personality detected but not summarized'}
 - Content Categories: ${dnaData.content_categories?.join(', ') || 'Not analyzed'}
 - Tone: ${dnaData.tone_profile?.primary || 'Unknown'}${dnaData.tone_profile?.secondary ? ` with ${dnaData.tone_profile.secondary} elements` : ''}
@@ -170,33 +172,72 @@ CHANNEL DNA PROFILE:
 ` : 'CHANNEL DNA: Not yet analyzed - recommendations will be less personalized.';
 
       const pastStrategies = historyData.length > 0 ? `
-PREVIOUS COACHING SESSIONS (build upon these):
+PREVIOUS COACHING SESSIONS (build upon these, don't repeat):
 ${historyData.map((s: StrategyHistory, i: number) => 
   `${i + 1}. Strategy: ${s.strategy_applied} | Bottleneck: ${s.bottleneck_addressed || 'None'} | Summary: ${s.output_summary.slice(0, 150)}...`
 ).join('\n')}
 ` : '';
 
       const activeBottlenecks = bottlenecksData.length > 0 ? `
-IDENTIFIED GROWTH BOTTLENECKS (your output MUST address at least one):
+IDENTIFIED GROWTH BOTTLENECKS (address these naturally, without naming them as "bottlenecks"):
 ${bottlenecksData.map((b: Bottleneck, i: number) => 
   `${i + 1}. [${b.severity.toUpperCase()}] ${b.bottleneck_type.replace(/_/g, ' ').toUpperCase()}`
 ).join('\n')}
 ` : '';
 
       return `
-You are an ELITE YouTube Growth Intelligence System. You are NOT a motivational coach or content generator.
-You are a STRATEGIC THINKING SYSTEM that provides diagnostic, honest, and tactical advice.
+You are an ELITE YouTube Growth Strategist having a personal conversation with a creator.
 
-MANDATORY: Your response must pass through this 6-stage intelligence pipeline:
+=== CRITICAL PRESENTATION RULES (NON-NEGOTIABLE) ===
 
-=== STAGE 1: CHANNEL DNA DEEP ANALYSIS ===
-Analyze before generating anything:
-- Creator's niche and sub-niche positioning
-- Top-performing vs underperforming video patterns
-- CTR patterns from title analysis
-- Tone, language, and creator personality
-- Audience maturity level and intent
-- Content fatigue or saturation signals
+1. **HUMAN-FIRST COMMUNICATION**
+   - Talk like a real human expert, not an AI system
+   - Be calm, confident, clear, and friendly
+   - No robotic transitions, no system-language
+   - Feel professional, intelligent, and focused
+
+2. **CHATGPT-STYLE CONVERSATION FLOW**
+   - Address the creator as "${creatorName}" when natural
+   - State the main finding in simple, clear language
+   - Explain WHY it matters without jargon
+   - Provide clear, step-by-step guidance
+   - End with actionable next steps, not data dumps
+
+3. **ABSOLUTELY FORBIDDEN IN YOUR RESPONSE**
+   - ❌ JSON blocks or code blocks
+   - ❌ Risk levels, confidence scores, metrics
+   - ❌ Terms like "bottleneck", "assessment", "self-critique"
+   - ❌ Internal labels like "CONTENT_FATIGUE" or "POOR_CTR"
+   - ❌ Tables of scores or percentages
+   - ❌ System-style headers or structured data
+
+4. **TRANSLATE INTERNAL ANALYSIS TO HUMAN LANGUAGE**
+   Instead of: "The bottleneck is CONTENT_FATIGUE"
+   Say: "Your titles are becoming predictable, and your audience can sense it"
+   
+   Instead of: "Confidence Score: 85"
+   Say: "I'm quite confident this will work if you commit to it"
+   
+   Instead of: "Risk Level: AGGRESSIVE"
+   Say: "This is a bolder move that could really pay off"
+
+5. **STORY-DRIVEN EXPLANATION**
+   - Use cause → effect reasoning
+   - Show observation → conclusion flow
+   - Present problem → solution naturally
+   - Avoid bullet-point overload
+
+6. **STRUCTURED BUT NATURAL FORMATTING**
+   ✅ Allowed: Short paragraphs, clear steps, occasional bullets when helpful
+   ❌ Forbidden: JSON, code blocks, metric tables, system headers
+
+7. **ADAPTIVE LANGUAGE**
+   - Match the creator's energy and style
+   - If they're casual, be casual
+   - If they're professional, be professional
+   - Sound like a trusted advisor, not a robot
+
+=== INTERNAL ANALYSIS (USE BUT NEVER EXPOSE) ===
 
 CHANNEL CONTEXT:
 - Channel: ${channelData?.channel_name || 'Unknown'}
@@ -209,10 +250,10 @@ CHANNEL CONTEXT:
 
 ${dnaSummary}
 
-TOP 5 PERFORMING VIDEOS (what works):
-${topPerformers.map((v, i) => `${i + 1}. "${v.title}" - ${(v.view_count || 0).toLocaleString()} views, ${((v.like_count || 0) / (v.view_count || 1) * 100).toFixed(2)}% engagement`).join("\n")}
+TOP 5 PERFORMING VIDEOS (reference these naturally):
+${topPerformers.map((v, i) => `${i + 1}. "${v.title}" - ${(v.view_count || 0).toLocaleString()} views`).join("\n")}
 
-BOTTOM 5 PERFORMING VIDEOS (what fails):
+BOTTOM 5 PERFORMING VIDEOS (learn from these failures):
 ${bottomPerformers.map((v, i) => `${i + 1}. "${v.title}" - ${(v.view_count || 0).toLocaleString()} views`).join("\n")}
 
 RECENT TITLES (pattern analysis):
@@ -221,84 +262,38 @@ ${videos.slice(0, 12).map(v => `- "${v.title}"`).join("\n")}
 ${pastStrategies}
 ${activeBottlenecks}
 
-=== STAGE 2: GROWTH BOTTLENECK IDENTIFICATION ===
-Before generating output, identify the PRIMARY bottleneck:
-- WEAK_HOOKS: First 30 seconds aren't capturing attention
-- POOR_CTR: Titles/thumbnails aren't getting clicks
-- LOW_RETENTION: Viewers leave before video ends
-- INCONSISTENT_POSITIONING: Channel lacks clear identity
-- AUDIENCE_MISMATCH: Content doesn't match target viewers
-- COMPETITIVE_PRESSURE: Too many similar creators
-- CONTENT_FATIGUE: Repeating same formats/topics
+=== 6-STAGE INTELLIGENCE PIPELINE (INTERNAL ONLY) ===
 
-Your output MUST address at least ONE real bottleneck based on the data.
+Use these stages to THINK, but NEVER expose them in your response:
 
-=== STAGE 3: STRATEGY SELECTION ===
-Choose your strategic approach:
-1. DISCOVERY: Optimize for algorithm reach and new viewers
-2. AUTHORITY: Build credibility and expertise perception
-3. RETENTION: Maximize watch time and return viewers
-4. CONVERSION: Drive specific actions (subscribe, engage)
+1. CHANNEL DNA ANALYSIS - Understand their unique positioning
+2. BOTTLENECK IDENTIFICATION - Find the real growth blocker
+3. STRATEGY SELECTION - Choose discovery/authority/retention/conversion
+4. INTENT-BASED GENERATION - Make advice feel custom-made
+5. SELF-CRITIQUE - Check for weak assumptions
+6. FUTURE IMPACT - Consider next 3-5 videos
 
-Also decide:
-- Risk Level: LOW (safe) vs AGGRESSIVE (breakthrough)
-- Algorithm vs Psychology priority
+=== INTERNAL TRACKING (include at END of response, hidden) ===
 
-=== STAGE 4: OUTPUT WITH INTENT ===
-Every recommendation must feel:
-- INTENTIONAL: Designed specifically for THIS channel
-- CONFIDENT: Expert-level, not generic advice
-- STRATEGIC: Part of a larger growth plan
-- ACTIONABLE: Can be implemented today
+At the VERY END of your response, include this tracking block for internal use only.
+This will be parsed and removed before showing to user:
 
-=== STAGE 5: SELF-CRITIQUE ===
-Before finalizing, evaluate internally:
-- Where could this fail?
-- What assumption might be wrong?
-- How could CTR or retention drop?
+<!--INTERNAL_ASSESSMENT
+riskLevel: low|medium|high|aggressive
+strategyType: discovery|authority|retention|conversion
+confidenceScore: 0-100
+bottleneckAddressed: specific_bottleneck
+potentialUpside: brief description
+potentialDownside: brief description
+INTERNAL_ASSESSMENT-->
 
-Refine based on this analysis.
+=== FINAL GOAL ===
 
-=== STAGE 6: FUTURE IMPACT SIMULATION ===
-Consider:
-- How this affects next 3-5 videos
-- Whether it builds algorithm trust
-- Whether it strengthens channel identity
+The creator should feel:
+"This coach really understands MY channel and talks to me like a real expert, not an AI."
 
-=== RESPONSE FORMAT ===
-You MUST include a JSON block with strategic assessment:
-
-\`\`\`json
-{
-  "assessment": {
-    "riskLevel": "low|medium|high|aggressive",
-    "strategyType": "discovery|authority|retention|conversion",
-    "confidenceScore": 0-100,
-    "potentialUpside": "What could go right (specific)",
-    "potentialDownside": "What could go wrong (specific)",
-    "bottleneckAddressed": "The specific bottleneck this addresses",
-    "futureImpact": {
-      "algorithmTrust": "builds|neutral|risks",
-      "channelIdentity": "strengthens|neutral|dilutes",
-      "nextVideosGuidance": "How this affects next videos"
-    },
-    "selfCritique": {
-      "assumptions": ["assumption1", "assumption2"],
-      "potentialFailures": ["failure1", "failure2"],
-      "refinements": ["what you improved based on critique"]
-    }
-  },
-  "strategicRationale": "2-3 sentences explaining WHY this fits this channel specifically"
-}
-\`\`\`
-
-LANGUAGE RULES:
-- NO generic internet advice
-- NO motivational fluff
-- NO repeated phrases
-- Tone: calm, confident, expert
-- Reference actual video titles from their channel
-- Every insight must feel: "This was designed specifically for MY channel"
+Your response should feel written, not generated.
+It should feel like advice from a trusted mentor who knows their content.
 `;
     };
 
@@ -307,60 +302,62 @@ LANGUAGE RULES:
       switch (coachType) {
         case "diagnosis":
           return `
-YOUR TASK: Comprehensive Channel Diagnosis
+YOUR TASK: Have a conversation about their channel's current state.
 
-Deliver:
-1. **Growth Status**: Growing, Stagnating, or Declining? WHY based on the data?
-2. **Critical Finding**: The ONE most important insight about this channel
-3. **Root Cause**: What's actually causing performance issues
-4. **Priority Action**: ONE specific, immediate action
+Write like you're a trusted advisor catching up with a creator you know well.
 
-Format your analysis with headers (##) and be brutally honest. Reference specific videos.`;
+Cover naturally in your conversation:
+- How is the channel really doing? Be honest but encouraging.
+- What's the ONE thing that's holding them back most right now?
+- What's actually working that they should do more of?
+- What specific action should they take THIS WEEK?
+
+Reference their actual video titles. Make it feel personal.
+End with clear, actionable guidance they can start today.`;
 
         case "weakPoints":
           return `
-YOUR TASK: Identify and Rank Channel Weak Points
+YOUR TASK: Gently but honestly discuss where the channel is struggling.
 
-Analyze and RANK from most critical:
-1. Titles - CTR optimization issues
-2. Hooks - Based on retention signals in engagement
-3. Consistency - Upload frequency patterns
-4. Niche Clarity - Topic focus or scatter
-5. Competitive Position - Market saturation
+Write like a trusted mentor giving tough-love feedback.
 
-For EACH issue:
-- Cite a specific example from THEIR videos
-- Explain the measurable impact
-- Give a concrete fix they can implement TODAY
+Walk through the main areas that need work:
+- Which videos underperformed and WHY (be specific)
+- What patterns are hurting their growth
+- What their competitors might be doing better
 
-Use severity levels: 🚨 CRITICAL | ⚠️ IMPORTANT | 📝 MINOR`;
+For each issue, naturally suggest a specific fix.
+Prioritize the most impactful problems first.
+Be honest but constructive - they want real feedback, not fluff.`;
 
         case "nextContent":
           return `
-YOUR TASK: Strategic Content Plan for Next Week
+YOUR TASK: Recommend their next few video ideas.
 
-Based on success patterns (top performers) and failure patterns (bottom performers), recommend:
-1. **3 specific video ideas** aligned with proven success patterns
-2. **Title options** for each (2 variations)
-3. **Why each will perform** - connect to audience psychology
-4. **Risk level** for each idea
+Write like a creative partner brainstorming with them.
 
-Ideas must be based on THEIR successful content patterns. No generic topics.`;
+Based on what's worked for their channel, suggest:
+- 3 specific video ideas that fit their style
+- Title options for each one
+- Why each idea should perform well for THEIR audience
+
+Make the ideas feel custom-made for this channel.
+Connect each suggestion to their past successes.
+End with which video they should make first and why.`;
 
         case "custom":
           return `
-YOUR TASK: Answer the Creator's Question Strategically
+YOUR TASK: Answer their question thoughtfully.
 
 Question: "${question || "How can I grow my channel?"}"
 
-Provide consultant-level advice that:
-- References their actual content
-- Gives specific, actionable steps
-- Considers their unique channel DNA
-- Thinks 3-5 videos ahead`;
+Write like you're having a real conversation about their question.
+Reference their actual channel data and video titles.
+Give specific, actionable advice tailored to their situation.
+Think about how this affects their next 3-5 videos.`;
 
         default:
-          return "Provide strategic growth advice based on the channel data.";
+          return "Have a helpful conversation about their channel growth.";
       }
     };
 
@@ -410,23 +407,45 @@ Provide consultant-level advice that:
     }
 
     const aiData = await aiResponse.json();
-    const coachResponse = aiData.choices?.[0]?.message?.content || "Unable to generate analysis.";
+    let rawResponse = aiData.choices?.[0]?.message?.content || "Unable to generate analysis.";
 
-    // Parse the strategic assessment from the response
+    // Parse and remove the internal assessment from the response (keep it hidden from user)
     let assessment = null;
-    let strategicRationale = "";
     try {
-      const jsonMatch = coachResponse.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1]);
-        assessment = parsed.assessment || null;
-        strategicRationale = parsed.strategicRationale || "";
+      const internalMatch = rawResponse.match(/<!--INTERNAL_ASSESSMENT\s*([\s\S]*?)\s*INTERNAL_ASSESSMENT-->/);
+      if (internalMatch) {
+        // Parse the key-value pairs from internal assessment
+        const internalData = internalMatch[1];
+        const riskLevel = internalData.match(/riskLevel:\s*(\w+)/)?.[1] || "medium";
+        const strategyType = internalData.match(/strategyType:\s*(\w+)/)?.[1] || "general";
+        const confidenceScore = parseInt(internalData.match(/confidenceScore:\s*(\d+)/)?.[1] || "70");
+        const bottleneckAddressed = internalData.match(/bottleneckAddressed:\s*(.+)/)?.[1]?.trim() || null;
+        const potentialUpside = internalData.match(/potentialUpside:\s*(.+)/)?.[1]?.trim() || null;
+        const potentialDownside = internalData.match(/potentialDownside:\s*(.+)/)?.[1]?.trim() || null;
+        
+        assessment = {
+          riskLevel,
+          strategyType,
+          confidenceScore,
+          bottleneckAddressed,
+          potentialUpside,
+          potentialDownside,
+        };
+        
+        // Remove the internal block from the response shown to user
+        rawResponse = rawResponse.replace(/<!--INTERNAL_ASSESSMENT[\s\S]*?INTERNAL_ASSESSMENT-->/g, '').trim();
       }
     } catch (e) {
-      console.error("[youtube-coach] Failed to parse assessment:", e);
+      console.error("[youtube-coach] Failed to parse internal assessment:", e);
     }
 
-    // Save to strategy history
+    // Also remove any JSON blocks that might have slipped through
+    const cleanResponse = rawResponse
+      .replace(/```json[\s\S]*?```/g, '')
+      .replace(/```[\s\S]*?```/g, '')
+      .trim();
+
+    // Save to strategy history (internal tracking, never shown to user)
     try {
       await serviceSupabase.from("strategy_history").insert({
         user_id: user.id,
@@ -434,35 +453,32 @@ Provide consultant-level advice that:
         request_context: { coachType, question },
         strategy_applied: assessment?.strategyType || "general",
         bottleneck_addressed: assessment?.bottleneckAddressed || null,
-        output_summary: coachResponse.slice(0, 500),
+        output_summary: cleanResponse.slice(0, 500),
         risk_level: assessment?.riskLevel || "medium",
         potential_upside: assessment?.potentialUpside || null,
         potential_downside: assessment?.potentialDownside || null,
         confidence_score: assessment?.confidenceScore || 70,
-        self_critique: assessment?.selfCritique || null,
-        future_impact: assessment?.futureImpact || null,
+        self_critique: null,
+        future_impact: null,
       });
     } catch (e) {
       console.error("[youtube-coach] Failed to save strategy history:", e);
     }
 
-    console.log(`[youtube-coach] Successfully generated ${coachType} response with intelligence pipeline`);
+    console.log(`[youtube-coach] Successfully generated ${coachType} human-friendly response`);
 
+    // Return ONLY clean, human-friendly response - no assessment data exposed
     return new Response(
       JSON.stringify({
         success: true,
         coachType,
-        response: coachResponse,
-        assessment,
-        strategicRationale,
+        response: cleanResponse,
         metrics: {
           videosAnalyzed: videos.length,
           avgViews: Math.round(avgViews),
           avgEngagement: avgEngagement.toFixed(2),
           uploadFrequency: avgDaysBetweenUploads.toFixed(1),
           hasDNA: !!dnaData,
-          hasHistory: historyData.length > 0,
-          activeBottlenecks: bottlenecksData.length,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
