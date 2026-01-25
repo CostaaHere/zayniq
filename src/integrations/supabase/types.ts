@@ -53,6 +53,45 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_bottlenecks: {
+        Row: {
+          bottleneck_type: string
+          evidence: Json | null
+          id: string
+          identified_at: string
+          recommended_actions: Json | null
+          resolved_at: string | null
+          severity: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bottleneck_type: string
+          evidence?: Json | null
+          id?: string
+          identified_at?: string
+          recommended_actions?: Json | null
+          resolved_at?: string | null
+          severity: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bottleneck_type?: string
+          evidence?: Json | null
+          id?: string
+          identified_at?: string
+          recommended_actions?: Json | null
+          resolved_at?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       channel_dna: {
         Row: {
           analyzed_at: string
@@ -342,6 +381,57 @@ export type Database = {
           updated_at?: string
           user_id?: string
           viral_score?: number | null
+        }
+        Relationships: []
+      }
+      strategy_history: {
+        Row: {
+          bottleneck_addressed: string | null
+          confidence_score: number | null
+          created_at: string
+          feature_type: string
+          future_impact: Json | null
+          id: string
+          output_summary: string
+          potential_downside: string | null
+          potential_upside: string | null
+          request_context: Json | null
+          risk_level: string | null
+          self_critique: Json | null
+          strategy_applied: string
+          user_id: string
+        }
+        Insert: {
+          bottleneck_addressed?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          feature_type: string
+          future_impact?: Json | null
+          id?: string
+          output_summary: string
+          potential_downside?: string | null
+          potential_upside?: string | null
+          request_context?: Json | null
+          risk_level?: string | null
+          self_critique?: Json | null
+          strategy_applied: string
+          user_id: string
+        }
+        Update: {
+          bottleneck_addressed?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          feature_type?: string
+          future_impact?: Json | null
+          id?: string
+          output_summary?: string
+          potential_downside?: string | null
+          potential_upside?: string | null
+          request_context?: Json | null
+          risk_level?: string | null
+          self_critique?: Json | null
+          strategy_applied?: string
+          user_id?: string
         }
         Relationships: []
       }
