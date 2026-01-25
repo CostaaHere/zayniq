@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { logger } from "@/lib/logger";
-import { RiskRewardAssessment } from "@/types/intelligence";
 
 export type CoachType = "diagnosis" | "weakPoints" | "nextContent" | "custom";
 
@@ -13,15 +12,11 @@ export interface CoachMetrics {
   avgEngagement: string;
   uploadFrequency: string;
   hasDNA: boolean;
-  hasHistory: boolean;
-  activeBottlenecks: number;
 }
 
 export interface CoachResponse {
   coachType: CoachType;
   response: string;
-  assessment: RiskRewardAssessment | null;
-  strategicRationale: string;
   metrics: CoachMetrics;
   timestamp: Date;
 }
@@ -71,16 +66,12 @@ export const useYouTubeCoach = (): UseYouTubeCoachReturn => {
       const newResponse: CoachResponse = {
         coachType: data.coachType,
         response: data.response,
-        assessment: data.assessment || null,
-        strategicRationale: data.strategicRationale || "",
         metrics: {
           videosAnalyzed: data.metrics?.videosAnalyzed || 0,
           avgViews: data.metrics?.avgViews || 0,
           avgEngagement: data.metrics?.avgEngagement || "0",
           uploadFrequency: data.metrics?.uploadFrequency || "0",
           hasDNA: data.metrics?.hasDNA || false,
-          hasHistory: data.metrics?.hasHistory || false,
-          activeBottlenecks: data.metrics?.activeBottlenecks || 0,
         },
         timestamp: new Date(),
       };
