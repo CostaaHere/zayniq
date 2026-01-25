@@ -285,6 +285,87 @@ export type Database = {
         }
         Relationships: []
       }
+      performance_predictions: {
+        Row: {
+          algorithm_factors: Json | null
+          competition_saturation: string | null
+          competitive_gap_analysis: Json | null
+          content_reference: string
+          created_at: string
+          ctr_confidence: string | null
+          ctr_factors: Json | null
+          dropoff_triggers: Json | null
+          feature_type: string
+          feed_predictions: Json | null
+          id: string
+          optimal_path: Json | null
+          overall_confidence: string | null
+          overall_confidence_score: number | null
+          predicted_ctr_range: Json | null
+          predicted_retention_curve: Json | null
+          promotion_likelihood: string | null
+          recommendation_summary: string | null
+          risk_factors: Json | null
+          session_impact: string | null
+          simulations: Json | null
+          success_indicators: Json | null
+          trend_alignment: string | null
+          user_id: string
+        }
+        Insert: {
+          algorithm_factors?: Json | null
+          competition_saturation?: string | null
+          competitive_gap_analysis?: Json | null
+          content_reference: string
+          created_at?: string
+          ctr_confidence?: string | null
+          ctr_factors?: Json | null
+          dropoff_triggers?: Json | null
+          feature_type: string
+          feed_predictions?: Json | null
+          id?: string
+          optimal_path?: Json | null
+          overall_confidence?: string | null
+          overall_confidence_score?: number | null
+          predicted_ctr_range?: Json | null
+          predicted_retention_curve?: Json | null
+          promotion_likelihood?: string | null
+          recommendation_summary?: string | null
+          risk_factors?: Json | null
+          session_impact?: string | null
+          simulations?: Json | null
+          success_indicators?: Json | null
+          trend_alignment?: string | null
+          user_id: string
+        }
+        Update: {
+          algorithm_factors?: Json | null
+          competition_saturation?: string | null
+          competitive_gap_analysis?: Json | null
+          content_reference?: string
+          created_at?: string
+          ctr_confidence?: string | null
+          ctr_factors?: Json | null
+          dropoff_triggers?: Json | null
+          feature_type?: string
+          feed_predictions?: Json | null
+          id?: string
+          optimal_path?: Json | null
+          overall_confidence?: string | null
+          overall_confidence_score?: number | null
+          predicted_ctr_range?: Json | null
+          predicted_retention_curve?: Json | null
+          promotion_likelihood?: string | null
+          recommendation_summary?: string | null
+          risk_factors?: Json | null
+          session_impact?: string | null
+          simulations?: Json | null
+          success_indicators?: Json | null
+          trend_alignment?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -395,6 +476,8 @@ export type Database = {
           output_summary: string
           potential_downside: string | null
           potential_upside: string | null
+          prediction_accuracy_score: number | null
+          prediction_id: string | null
           request_context: Json | null
           risk_level: string | null
           self_critique: Json | null
@@ -411,6 +494,8 @@ export type Database = {
           output_summary: string
           potential_downside?: string | null
           potential_upside?: string | null
+          prediction_accuracy_score?: number | null
+          prediction_id?: string | null
           request_context?: Json | null
           risk_level?: string | null
           self_critique?: Json | null
@@ -427,13 +512,23 @@ export type Database = {
           output_summary?: string
           potential_downside?: string | null
           potential_upside?: string | null
+          prediction_accuracy_score?: number | null
+          prediction_id?: string | null
           request_context?: Json | null
           risk_level?: string | null
           self_critique?: Json | null
           strategy_applied?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "strategy_history_prediction_id_fkey"
+            columns: ["prediction_id"]
+            isOneToOne: false
+            referencedRelation: "performance_predictions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       youtube_cache: {
         Row: {

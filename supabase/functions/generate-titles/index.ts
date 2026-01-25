@@ -29,6 +29,33 @@ interface ABTestCluster {
   titles: TitleInsight[];
 }
 
+interface PredictionLayer {
+  ctr: {
+    predictedRange: { min: number; max: number; baseline: number };
+    confidence: 'low' | 'medium' | 'high';
+    vsChannelAverage: string;
+    factors: Array<{ factor: string; impact: string; weight: number }>;
+  };
+  algorithm: {
+    promotionLikelihood: 'low' | 'medium' | 'high' | 'experimental';
+    feedPredictions: { suggested: string; browse: string; trending: string };
+    optimalPostingWindow?: string;
+  };
+  competition: {
+    trendAlignment: string;
+    competitionSaturation: string;
+    shortTermOutlook: string;
+  };
+  simulations: Array<{
+    scenario: string;
+    predictedOutcome: { ctrChange: string; retentionChange: string; growthImpact: string };
+    recommendation: string;
+  }>;
+  overallConfidence: 'low' | 'medium' | 'high' | 'experimental';
+  overallConfidenceScore: number;
+  humanInsight: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -46,9 +73,11 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: authHeader } }
     });
+    const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -65,9 +94,32 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating intent-based titles for user:", user.id, "topic:", topic, "with DNA:", !!channelDNA);
+    console.log("[generate-titles] Generating with prediction engine for:", user.id, "topic:", topic);
 
-    // Build comprehensive DNA-aware system prompt
+    // Fetch channel metrics for prediction engine
+    const [channelResult, dnaResult, videosResult] = await Promise.all([
+      supabase.from("channels").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("channel_dna").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("youtube_videos").select("*").eq("user_id", user.id).order("view_count", { ascending: false }).limit(20),
+    ]);
+
+    const channelData = channelResult.data;
+    const dnaData = dnaResult.data;
+    const videosData = videosResult.data || [];
+
+    // Calculate channel metrics for prediction
+    const avgViews = videosData.length > 0 
+      ? videosData.reduce((sum: number, v: any) => sum + (v.view_count || 0), 0) / videosData.length 
+      : 1000;
+    const avgLikes = videosData.length > 0
+      ? videosData.reduce((sum: number, v: any) => sum + (v.like_count || 0), 0) / videosData.length
+      : 50;
+    const avgEngagement = avgViews > 0 ? (avgLikes / avgViews) * 100 : 3;
+    
+    const topTitles = videosData.slice(0, 5).map((v: any) => v.title);
+    const bottomTitles = [...videosData].sort((a: any, b: any) => (a.view_count || 0) - (b.view_count || 0)).slice(0, 5).map((v: any) => v.title);
+
+    // Build comprehensive DNA-aware system prompt with prediction engine
     let dnaContext = "";
     let dnaPersonalization = "";
     
@@ -89,15 +141,49 @@ PERSONALIZATION RULES:
       dnaPersonalization = `Note: No Channel DNA available. Explain how this title could be personalized once the creator analyzes their channel.`;
     }
 
+    // Prediction engine context
+    const predictionContext = `
+=== PERFORMANCE PREDICTION ENGINE (MANDATORY) ===
+
+You must run EVERY title through the prediction simulation before including it.
+
+CHANNEL BASELINE METRICS:
+- Average Views: ${avgViews.toLocaleString()}
+- Subscriber Count: ${channelData?.subscriber_count?.toLocaleString() || 'Unknown'}
+- Engagement Rate: ${avgEngagement.toFixed(2)}%
+- Power Words That Work: ${dnaData?.power_words?.slice(0, 10).join(', ') || 'Unknown'}
+
+TOP PERFORMING TITLES (learn from these):
+${topTitles.map((t: string, i: number) => `${i + 1}. "${t}"`).join('\n')}
+
+BOTTOM PERFORMING TITLES (avoid these patterns):
+${bottomTitles.map((t: string, i: number) => `${i + 1}. "${t}"`).join('\n')}
+
+FOR THE TOP PICK TITLE, YOU MUST INCLUDE A COMPLETE PREDICTION:
+1. CTR PREDICTION: Predict CTR range based on channel history, power words, emotional triggers
+2. ALGORITHM PREDICTION: Estimate promotion likelihood in suggested/browse/trending feeds
+3. COMPETITION ANALYSIS: Assess trend alignment and saturation
+4. WHAT-IF SIMULATIONS: Generate 2-3 alternative scenarios with predicted outcomes
+5. HUMAN INSIGHT: A natural language summary of the prediction (NO numbers exposed)
+
+CRITICAL SELF-CRITIQUE:
+- Before finalizing, evaluate: Are there hidden risks?
+- Could this fail due to audience mismatch or algorithm changes?
+- If confidence is low, don't include the title
+- Only present titles that pass the predictive threshold
+`;
+
     const systemPrompt = `You are an elite YouTube growth strategist with deep expertise in:
 - Click-Through Rate optimization psychology
 - YouTube algorithm mechanics
 - Viewer behavior patterns
 - Emotional engagement triggers
+- PREDICTIVE ANALYTICS AND SIMULATION
 
 ${dnaContext}
+${predictionContext}
 
-You are generating an INTENT-BASED TITLE INTELLIGENCE report - not just titles, but strategic insights.
+You are generating an INTENT-BASED TITLE INTELLIGENCE report with PREDICTIVE SIMULATION.
 
 GENERATE TITLES IN 5 PSYCHOLOGICAL CATEGORIES:
 
@@ -174,19 +260,53 @@ Return a JSON object with this exact structure:
   "topPick": {
     "title": "...",
     "reason": "Why this is the strategically best title for this specific video and channel"
+  },
+  "prediction": {
+    "ctr": {
+      "predictedRange": { "min": 4.5, "max": 6.2, "baseline": 5.0 },
+      "confidence": "high",
+      "vsChannelAverage": "+15-22% above your typical performance",
+      "factors": [
+        { "factor": "Strong curiosity trigger", "impact": "positive", "weight": 0.9 },
+        { "factor": "Proven power word pattern", "impact": "positive", "weight": 0.7 }
+      ]
+    },
+    "algorithm": {
+      "promotionLikelihood": "high",
+      "feedPredictions": { "suggested": "high", "browse": "medium", "trending": "low" },
+      "optimalPostingWindow": "Weekday evenings 6-9 PM"
+    },
+    "competition": {
+      "trendAlignment": "rising",
+      "competitionSaturation": "medium",
+      "shortTermOutlook": "Strong potential in next 2 weeks"
+    },
+    "simulations": [
+      {
+        "scenario": "Add specific number to title",
+        "predictedOutcome": { "ctrChange": "+8-12%", "retentionChange": "neutral", "growthImpact": "moderate positive" },
+        "recommendation": "recommended"
+      }
+    ],
+    "overallConfidence": "high",
+    "overallConfidenceScore": 85,
+    "humanInsight": "Based on your channel's DNA and historical performance, this title should outperform your typical videos. The combination of curiosity and authority triggers aligns perfectly with what's worked for you before."
   }
 }
 
 Return ONLY valid JSON. No markdown, no explanation outside the JSON.`;
 
-    const userPrompt = `Generate an Intent-Based Title Intelligence report for:
+    const userPrompt = `Generate an Intent-Based Title Intelligence report with PERFORMANCE PREDICTIONS for:
 
 VIDEO TOPIC: ${topic}
 ${keyword ? `TARGET KEYWORD: ${keyword}` : ""}
 TONE: ${tone}
 ${includeEmoji ? "EMOJIS: Yes" : "EMOJIS: No"}
 
-Remember: This creator needs titles that feel personally crafted for their channel, not generic suggestions.`;
+Remember: 
+1. This creator needs titles that feel personally crafted for their channel
+2. Every title must pass through the prediction engine before being included
+3. The topPick must include a full predictive analysis`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -239,9 +359,36 @@ Remember: This creator needs titles that feel personally crafted for their chann
       throw new Error("Failed to parse AI response");
     }
 
+    // Save prediction to database if available
+    if (intelligence.prediction) {
+      try {
+        await serviceSupabase.from('performance_predictions').insert({
+          user_id: user.id,
+          feature_type: 'title',
+          content_reference: intelligence.topPick?.title || topic,
+          predicted_ctr_range: intelligence.prediction.ctr?.predictedRange || {},
+          ctr_confidence: intelligence.prediction.ctr?.confidence || 'medium',
+          ctr_factors: intelligence.prediction.ctr?.factors || [],
+          promotion_likelihood: intelligence.prediction.algorithm?.promotionLikelihood || 'medium',
+          algorithm_factors: [],
+          feed_predictions: intelligence.prediction.algorithm?.feedPredictions || {},
+          trend_alignment: intelligence.prediction.competition?.trendAlignment || 'neutral',
+          competition_saturation: intelligence.prediction.competition?.competitionSaturation || 'medium',
+          simulations: intelligence.prediction.simulations || [],
+          overall_confidence: intelligence.prediction.overallConfidence || 'medium',
+          overall_confidence_score: intelligence.prediction.overallConfidenceScore || 70,
+          recommendation_summary: intelligence.prediction.humanInsight || '',
+        });
+        console.log("[generate-titles] Saved prediction to database");
+      } catch (e) {
+        console.error("[generate-titles] Failed to save prediction:", e);
+      }
+    }
+
     return new Response(JSON.stringify({ 
       intelligence, 
       personalizedWithDNA: !!channelDNA,
+      hasPrediction: !!intelligence.prediction,
       generatedAt: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
