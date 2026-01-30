@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import DOMPurify from "dompurify";
 import { 
+  Bot,
   Stethoscope, 
   AlertTriangle, 
   Calendar, 
@@ -9,21 +10,23 @@ import {
 } from "lucide-react";
 import type { CoachResponse, CoachType } from "@/hooks/useYouTubeCoach";
 import { format } from "date-fns";
+import StreamingText from "./StreamingText";
 
 interface CoachMessageProps {
   response: CoachResponse;
+  isNew?: boolean; // Whether this is a newly added message (should stream)
 }
 
 const getCoachIcon = (type: CoachType) => {
   switch (type) {
     case "diagnosis":
-      return <Stethoscope className="w-4 h-4" />;
+      return <Stethoscope className="w-3.5 h-3.5" />;
     case "weakPoints":
-      return <AlertTriangle className="w-4 h-4" />;
+      return <AlertTriangle className="w-3.5 h-3.5" />;
     case "nextContent":
-      return <Calendar className="w-4 h-4" />;
+      return <Calendar className="w-3.5 h-3.5" />;
     case "custom":
-      return <MessageSquare className="w-4 h-4" />;
+      return <MessageSquare className="w-3.5 h-3.5" />;
   }
 };
 
@@ -40,72 +43,72 @@ const getCoachLabel = (type: CoachType) => {
   }
 };
 
-const formatMarkdown = (text: string): string => {
-  // Clean up any remaining system artifacts that shouldn't be shown
-  let cleaned = text
-    // Remove any internal assessment blocks that slipped through
-    .replace(/<!--[\s\S]*?-->/g, '')
-    // Remove any JSON blocks
-    .replace(/```json[\s\S]*?```/g, '')
-    .replace(/```[\s\S]*?```/g, '')
-    // Remove metric-style lines
-    .replace(/^(Risk Level|Confidence|Strategy Type|Bottleneck):.*$/gm, '')
-    .trim();
+const CoachMessage = ({ response, isNew = false }: CoachMessageProps) => {
+  const [streamComplete, setStreamComplete] = useState(!isNew);
 
-  // Natural markdown formatting for conversational text
-  let formatted = cleaned
-    // Bold text
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground font-semibold">$1</strong>')
-    // Italic text
-    .replace(/\*(.*?)\*/g, '<em class="text-foreground/90">$1</em>')
-    // Headers - styled naturally
-    .replace(/^## (.*?)$/gm, '<h2 class="text-lg font-semibold text-foreground mt-6 mb-3">$1</h2>')
-    .replace(/^### (.*?)$/gm, '<h3 class="text-base font-medium text-foreground mt-5 mb-2">$1</h3>')
-    // Unordered lists
-    .replace(/^- (.*?)$/gm, '<li class="ml-4 list-disc text-muted-foreground leading-relaxed">$1</li>')
-    // Ordered lists
-    .replace(/^(\d+)\. (.*?)$/gm, '<li class="ml-4 list-decimal text-muted-foreground leading-relaxed">$2</li>')
-    // Paragraphs with good spacing
-    .replace(/\n\n/g, '</p><p class="mb-4 text-muted-foreground leading-relaxed">')
-    .replace(/\n/g, '<br />');
-  
-  const html = `<p class="mb-4 text-muted-foreground leading-relaxed">${formatted}</p>`;
-  
-  // Sanitize the output to prevent XSS attacks
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'h2', 'h3', 'ul', 'ol', 'li', 'span'],
-    ALLOWED_ATTR: ['class'],
-  });
-};
-
-const CoachMessage = ({ response }: CoachMessageProps) => {
   return (
-    <div className="space-y-4">
-      {/* Simple, clean header */}
-      <div className="flex items-center justify-between">
-        <div className={cn(
-          "inline-flex items-center gap-2 px-3 py-1.5 rounded-full",
-          "bg-primary/10 text-primary text-sm font-medium"
-        )}>
-          {getCoachIcon(response.coachType)}
-          {getCoachLabel(response.coachType)}
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex items-start gap-3">
+      {/* Coach Avatar */}
+      <div className={cn(
+        "flex-shrink-0 w-8 h-8 rounded-lg",
+        "bg-gradient-to-br from-primary to-accent",
+        "flex items-center justify-center",
+        "shadow-md shadow-primary/20"
+      )}>
+        <Bot className="w-4 h-4 text-primary-foreground" />
+      </div>
+
+      {/* Message Bubble */}
+      <div className={cn(
+        "max-w-[70%] space-y-3",
+        "animate-in fade-in-0 slide-in-from-left-2 duration-300"
+      )}>
+        {/* Header with type and meta */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full",
+            "bg-primary/10 text-primary text-xs font-medium"
+          )}>
+            {getCoachIcon(response.coachType)}
+            {getCoachLabel(response.coachType)}
+          </div>
+          
           {response.metrics.hasDNA && (
-            <span className="inline-flex items-center gap-1 text-accent">
+            <span className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full",
+              "bg-accent/10 text-accent text-xs"
+            )}>
               <Dna className="w-3 h-3" />
               DNA-Enhanced
             </span>
           )}
-          <span>{format(response.timestamp, "h:mm a")}</span>
+          
+          <span className="text-xs text-muted-foreground/60">
+            {format(response.timestamp, "h:mm a")}
+          </span>
+        </div>
+
+        {/* Message Content Bubble */}
+        <div className={cn(
+          "px-4 py-3.5 rounded-2xl rounded-tl-md",
+          "bg-card/80 border border-border/30",
+          "backdrop-blur-sm",
+          "shadow-sm"
+        )}>
+          {isNew && !streamComplete ? (
+            <StreamingText 
+              content={response.response}
+              speed={6}
+              onComplete={() => setStreamComplete(true)}
+            />
+          ) : (
+            <StreamingText 
+              content={response.response}
+              speed={999} // Instant for already-shown messages
+            />
+          )}
         </div>
       </div>
-
-      {/* Clean, human-readable response */}
-      <div 
-        className="prose prose-invert prose-sm max-w-none"
-        dangerouslySetInnerHTML={{ __html: formatMarkdown(response.response) }}
-      />
     </div>
   );
 };
