@@ -4,8 +4,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useYouTubeAnalytics } from "@/hooks/useYouTubeAnalytics";
 import { useChannelDNA } from "@/hooks/useChannelDNA";
 import { ChannelDNAPanel } from "@/components/dashboard/ChannelDNAPanel";
+import { YouTubeConnectButton } from "@/components/youtube/YouTubeConnectButton";
 import { 
-  ArrowRight,
   RefreshCw,
   Youtube,
   Loader2,
@@ -14,7 +14,6 @@ import {
   Target,
   Sparkles,
   ChevronRight,
-  Dna
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,7 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 
 const Dashboard = () => {
-  const { user, signInWithGoogle } = useAuth();
+  const { user } = useAuth();
   const { profile } = useProfile();
   const navigate = useNavigate();
   const {
@@ -35,14 +34,9 @@ const Dashboard = () => {
     formatSubscriberCount,
   } = useYouTubeAnalytics();
   
-  const { hasDNA, analyzing } = useChannelDNA();
+  const { hasDNA } = useChannelDNA();
 
   const firstName = profile?.full_name?.split(" ")[0] || user?.user_metadata?.full_name?.split(" ")[0] || "Creator";
-
-  // Handle reconnect with YouTube
-  const handleReconnectYouTube = async () => {
-    await signInWithGoogle();
-  };
 
   // Format time of day
   const getTimeOfDay = () => {
@@ -108,10 +102,7 @@ const Dashboard = () => {
                 <p className="text-muted-foreground text-sm mb-4">
                   ZainIQ needs access to analyze your content and deliver personalized insights.
                 </p>
-                <Button onClick={handleReconnectYouTube} className="gap-2">
-                  Connect with Google
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
+                <YouTubeConnectButton showChannelPreview={false} />
               </div>
             </div>
           </Alert>
