@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { decode } from "https://deno.land/std@0.208.0/encoding/base64url.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -268,32 +267,15 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Decode JWT to get user ID (the signing is already verified by Supabase infrastructure)
-    const token = authHeader.replace("Bearer ", "");
-    let userId: string;
+    // Validate user authentication
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     
-    try {
-      const parts = token.split(".");
-      if (parts.length !== 3) {
-        throw new Error("Invalid JWT format");
-      }
-      const payload = JSON.parse(new TextDecoder().decode(decode(parts[1])));
-      userId = payload.sub;
-      
-      if (!userId) {
-        throw new Error("No user ID in token");
-      }
-      
-      // Verify token is not expired
-      if (payload.exp && payload.exp * 1000 < Date.now()) {
-        throw new Error("Token expired");
-      }
-      
-      console.log("User authenticated:", userId);
-    } catch (e) {
-      console.error("JWT decode error:", e);
+    if (authError || !user) {
       throw new Error("AUTH_ERROR: Invalid or expired session. Please sign in again.");
     }
+    
+    const userId = user.id;
+    console.log("User authenticated:", userId);
 
     // Parse request body
     const { action, providerToken, ...params } = await req.json();

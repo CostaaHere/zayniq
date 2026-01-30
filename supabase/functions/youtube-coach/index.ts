@@ -65,8 +65,9 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Authorization required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -83,26 +84,31 @@ serve(async (req: Request) => {
 
     const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims?.sub) {
       return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
+        JSON.stringify({ error: "Invalid or expired authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const userId = claimsData.claims.sub;
+
     const body: CoachRequest = await req.json();
     const { question, coachType } = body;
 
-    console.log(`[youtube-coach] User ${user.id} requesting ${coachType} analysis with intelligence pipeline`);
+    console.log(`[youtube-coach] User ${userId} requesting ${coachType} analysis with intelligence pipeline`);
 
     // Fetch all channel data in parallel
     const [channelResult, dnaResult, videosResult, historyResult, bottlenecksResult] = await Promise.all([
-      supabase.from("channels").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("channel_dna").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("youtube_videos").select("*").eq("user_id", user.id).order("published_at", { ascending: false }).limit(30),
-      supabase.from("strategy_history").select("*").eq("user_id", user.id).eq("feature_type", "coach").order("created_at", { ascending: false }).limit(5),
-      supabase.from("channel_bottlenecks").select("*").eq("user_id", user.id).eq("status", "active").order("severity", { ascending: true }),
+      supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("youtube_videos").select("*").eq("user_id", userId).order("published_at", { ascending: false }).limit(30),
+      supabase.from("strategy_history").select("*").eq("user_id", userId).eq("feature_type", "coach").order("created_at", { ascending: false }).limit(5),
+      supabase.from("channel_bottlenecks").select("*").eq("user_id", userId).eq("status", "active").order("severity", { ascending: true }),
     ]);
 
     const channelData = channelResult.data;
@@ -448,7 +454,7 @@ Think about how this affects their next 3-5 videos.`;
     // Save to strategy history (internal tracking, never shown to user)
     try {
       await serviceSupabase.from("strategy_history").insert({
-        user_id: user.id,
+        user_id: userId,
         feature_type: "coach",
         request_context: { coachType, question },
         strategy_applied: assessment?.strategyType || "general",

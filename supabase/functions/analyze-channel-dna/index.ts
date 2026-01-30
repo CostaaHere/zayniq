@@ -33,8 +33,9 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Authentication required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -49,26 +50,31 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims?.sub) {
       return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
+        JSON.stringify({ error: "Invalid or expired authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const userId = claimsData.claims.sub;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Analyzing Channel DNA for user:", user.id);
+    console.log("Analyzing Channel DNA for user:", userId);
 
     // Fetch user's channel
     const { data: channel, error: channelError } = await supabase
       .from("channels")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (channelError || !channel) {
@@ -82,7 +88,7 @@ serve(async (req) => {
     const { data: videos, error: videosError } = await supabase
       .from("youtube_videos")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("view_count", { ascending: false })
       .limit(50);
 
@@ -218,7 +224,7 @@ Return ONLY the JSON object, no explanation.`;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     
     const dnaRecord = {
-      user_id: user.id,
+      user_id: userId,
       channel_id: channel.id,
       analyzed_at: new Date().toISOString(),
       videos_analyzed: videos.length,
