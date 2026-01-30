@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  CORE_INTELLIGENCE_DIRECTIVE, 
+  ANTI_ROBOT_DIRECTIVE,
+  SELF_CRITIQUE_DIRECTIVE,
+  buildDNAContext,
+  buildPerformanceContext,
+  type ChannelInsights 
+} from "../_shared/core-intelligence.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +20,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -27,7 +34,6 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
@@ -39,7 +45,6 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
-
     const { title, summary, keyPoints, links, includeTimestamps, channelDNA } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
@@ -47,51 +52,91 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Generating description for user:", userId, "title:", title, "with DNA:", !!channelDNA);
+    console.log("[generate-description] User:", userId, "title:", title);
 
-    // Build DNA-aware system prompt
-    let dnaContext = "";
-    if (channelDNA) {
-      dnaContext = `
-IMPORTANT - CHANNEL DNA (Personalization Context):
-${channelDNA}
+    // Fetch channel data for DNA-aligned intelligence
+    const [channelResult, dnaResult, videosResult] = await Promise.all([
+      supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("youtube_videos").select("*").eq("user_id", userId).order("view_count", { ascending: false }).limit(10),
+    ]);
 
-You MUST write this description in the channel's unique voice and style.
-Match their tone, vocabulary, and communication patterns exactly.
-Do NOT generate a generic description - it should feel authentically "theirs".
-`;
-    }
+    const channelData = channelResult.data;
+    const dnaData = dnaResult.data;
+    const videosData = videosResult.data || [];
 
-    const systemPrompt = `You are a YouTube description expert specializing in personalized, channel-specific content.
+    const avgViews = videosData.length > 0 
+      ? videosData.reduce((sum: number, v: any) => sum + (v.view_count || 0), 0) / videosData.length 
+      : 1000;
+    const avgLikes = videosData.length > 0
+      ? videosData.reduce((sum: number, v: any) => sum + (v.like_count || 0), 0) / videosData.length
+      : 50;
+    const avgEngagement = avgViews > 0 ? (avgLikes / avgViews) * 100 : 3;
+    
+    const topTitles = videosData.slice(0, 5).map((v: any) => v.title);
+    const bottomTitles = [...videosData].sort((a: any, b: any) => (a.view_count || 0) - (b.view_count || 0)).slice(0, 3).map((v: any) => v.title);
+
+    const insights: ChannelInsights = {
+      channelName: channelData?.channel_name || null,
+      subscriberCount: channelData?.subscriber_count || null,
+      avgViews,
+      avgEngagement,
+      topTitles,
+      bottomTitles,
+      dnaData: dnaData as any,
+    };
+
+    const dnaContext = buildDNAContext(insights);
+
+    const systemPrompt = `${CORE_INTELLIGENCE_DIRECTIVE}
+
 ${dnaContext}
-Generate an optimized video description that maximizes engagement and SEO.
 
-Rules:
-- Start with a compelling 2-3 sentence hook (this shows in preview)
-- Keep total length between 200-500 characters for the main content
-- Structure the description with clear sections
-- ${includeTimestamps ? "Include realistic timestamp sections (e.g., 0:00 Intro, 1:23 Topic, etc.)" : "Do NOT include timestamps"}
-- End with a call-to-action for subscribing
-- Be conversational but professional
-${channelDNA ? `- CRITICAL: Write in the channel's authentic voice and style` : ""}
+${ANTI_ROBOT_DIRECTIVE}
+
+=== DESCRIPTION INTELLIGENCE TASK ===
+
+You are a YouTube Description Strategist operating at elite intelligence.
+
+YOUR ROLE:
+Write a description that FEELS like the creator wrote it themselves.
+Match their voice, vocabulary, and communication style exactly.
+Every description must be channel-specific, not generic.
+
+DESCRIPTION STRUCTURE:
+1. HOOK (First 2-3 sentences) - This shows in preview. Must grab attention immediately.
+2. BODY - Value proposition, key takeaways, what viewers will learn/experience
+3. ${includeTimestamps ? "TIMESTAMPS - Include realistic, helpful chapter markers" : "NO TIMESTAMPS - User preference"}
+4. CALL-TO-ACTION - Natural, not pushy. Matches channel tone.
+
+QUALITY STANDARDS:
+- Character count: 200-500 for main content (not including timestamps)
+- Voice: Match the channel's DNA exactly
+- NO generic phrases like "In this video, I..." or "Don't forget to subscribe!"
+- Write as if you ARE the creator
+
+${SELF_CRITIQUE_DIRECTIVE}
 
 Return a JSON object with this exact structure:
 {
   "description": "The full description text with proper line breaks using \\n",
   "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-  "callToAction": "A subscribe reminder text",
-  "characterCount": 350
+  "callToAction": "A natural, channel-voice CTA",
+  "characterCount": 350,
+  "voiceMatch": "Brief explanation of how this matches the channel's voice"
 }
 
-Do not include any explanation or markdown, just the JSON object.`;
+Return ONLY valid JSON. No markdown or explanation.`;
 
-    const userPrompt = `Generate a YouTube description for:
+    const userPrompt = `Generate a DNA-aligned YouTube description for:
 
-Title: ${title}
-Summary: ${summary}
-${keyPoints?.length ? `Key points to cover:\n${keyPoints.map((p: string, i: number) => `${i + 1}. ${p}`).join("\n")}` : ""}
-${links?.length ? `Links to include:\n${links.join("\n")}` : ""}
-${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"}`;
+VIDEO TITLE: ${title}
+SUMMARY: ${summary}
+${keyPoints?.length ? `KEY POINTS:\n${keyPoints.map((p: string, i: number) => `${i + 1}. ${p}`).join("\n")}` : ""}
+${links?.length ? `LINKS TO INCLUDE:\n${links.join("\n")}` : ""}
+${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"}
+
+Remember: Write as if you ARE the creator. Match their DNA exactly.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -130,7 +175,6 @@ ${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
-    // Parse the JSON response
     let result;
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -144,7 +188,11 @@ ${includeTimestamps ? "Include timestamps for sections" : "No timestamps needed"
       throw new Error("Failed to parse AI response");
     }
 
-    return new Response(JSON.stringify({ ...result, personalizedWithDNA: !!channelDNA }), {
+    return new Response(JSON.stringify({ 
+      ...result, 
+      personalizedWithDNA: !!dnaData,
+      generatedAt: new Date().toISOString()
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

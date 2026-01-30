@@ -1,6 +1,14 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  CORE_INTELLIGENCE_DIRECTIVE, 
+  ANTI_ROBOT_DIRECTIVE,
+  SELF_CRITIQUE_DIRECTIVE,
+  buildDNAContext,
+  buildPerformanceContext,
+  type ChannelInsights 
+} from "../_shared/core-intelligence.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +21,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -30,7 +37,6 @@ serve(async (req) => {
     });
     const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
@@ -42,7 +48,6 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
-
     const { topic, niche, targetAudience, contentStyles, includeTrending, numberOfIdeas } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -50,12 +55,10 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Use custom topic if provided, otherwise fallback to niche
     const mainTopic = topic?.trim() || niche || 'General';
-    
-    console.log('[generate-content-ideas] User:', userId, 'topic:', mainTopic, 'count:', numberOfIdeas);
+    console.log('[generate-content-ideas] User:', userId, 'topic:', mainTopic);
 
-    // Fetch channel data for prediction engine
+    // Fetch comprehensive channel data
     const [channelResult, dnaResult, videosResult] = await Promise.all([
       supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
@@ -66,7 +69,6 @@ serve(async (req) => {
     const dnaData = dnaResult.data;
     const videosData = videosResult.data || [];
 
-    // Calculate metrics for prediction
     const avgViews = videosData.length > 0 
       ? videosData.reduce((sum: number, v: any) => sum + (v.view_count || 0), 0) / videosData.length 
       : 1000;
@@ -76,70 +78,73 @@ serve(async (req) => {
     const avgEngagement = avgViews > 0 ? (avgLikes / avgViews) * 100 : 3;
     
     const topTitles = videosData.slice(0, 5).map((v: any) => v.title);
-    const topCategories = dnaData?.content_categories || [];
+    const bottomTitles = [...videosData].sort((a: any, b: any) => (a.view_count || 0) - (b.view_count || 0)).slice(0, 5).map((v: any) => v.title);
+
+    const insights: ChannelInsights = {
+      channelName: channelData?.channel_name || null,
+      subscriberCount: channelData?.subscriber_count || null,
+      avgViews,
+      avgEngagement,
+      topTitles,
+      bottomTitles,
+      dnaData: dnaData as any,
+    };
+
+    const dnaContext = buildDNAContext(insights);
+    const performanceContext = buildPerformanceContext(insights);
 
     const stylesText = contentStyles?.length > 0 ? contentStyles.join(', ') : 'Any style';
     const trendingText = includeTrending ? 'Include current trending topics and viral formats relevant to this topic.' : '';
 
-    // Prediction engine context
-    const predictionContext = `
-=== PERFORMANCE PREDICTION ENGINE ===
+    const systemPrompt = `${CORE_INTELLIGENCE_DIRECTIVE}
 
-CHANNEL BASELINE:
-- Average Views: ${avgViews.toLocaleString()}
-- Subscribers: ${channelData?.subscriber_count?.toLocaleString() || 'Unknown'}
-- Engagement Rate: ${avgEngagement.toFixed(2)}%
-- Successful Categories: ${topCategories.join(', ') || 'Unknown'}
-- Power Words: ${dnaData?.power_words?.slice(0, 8).join(', ') || 'Unknown'}
+${dnaContext}
 
-TOP PERFORMING CONTENT:
-${topTitles.map((t: string, i: number) => `${i + 1}. "${t}"`).join('\n')}
+${performanceContext}
 
-FOR EACH IDEA, RUN PREDICTION SIMULATION:
-1. CTR PREDICTION: Estimate click potential based on title, topic, and channel patterns
-2. RETENTION PREDICTION: Predict watch time and session impact
-3. ALGORITHM PREDICTION: Estimate promotion likelihood in feeds
-4. COMPETITION ANALYSIS: Assess saturation and trend alignment
-5. WHAT-IF SCENARIOS: Consider alternative angles
+${ANTI_ROBOT_DIRECTIVE}
 
-ONLY INCLUDE IDEAS THAT PASS PREDICTIVE THRESHOLD
-Ideas with low predicted performance should be replaced with better alternatives.
-`;
+=== CONTENT IDEA INTELLIGENCE ===
 
-    const prompt = `You are a YouTube content strategist with PREDICTIVE INTELLIGENCE capabilities.
+You are a YouTube Content Strategist with predictive intelligence.
 
-${predictionContext}
+YOUR ROLE:
+Generate content ideas that are SPECIFICALLY designed for THIS channel.
+Every idea must align with their DNA, avoid their kill zones, and leverage their proven formats.
+Don't suggest generic video ideas - suggest ideas this specific creator should make.
 
-Generate ${numberOfIdeas || 10} unique viral video content ideas that have been SIMULATED and VALIDATED.
+IDEA GENERATION FRAMEWORK:
 
-Topic/Niche: ${mainTopic}
-Target Audience: ${targetAudience || 'General audience'}
-Content Styles: ${stylesText}
-${trendingText}
+1. DNA ALIGNMENT CHECK
+   - Does this idea fit the channel's core archetype?
+   - Does it match their tone and complexity level?
+   - Is it in their format sweet spots?
+   - Does it AVOID their kill zones?
 
-IMPORTANT: Focus specifically on "${mainTopic}" - create ideas that are highly relevant, catchy, and creator-ready for this exact topic. Ideas should be clickable and optimized for YouTube/Shorts.
+2. PERFORMANCE SIMULATION
+   - Based on their historical data, how would this perform?
+   - Is this similar to their top performers or bottom performers?
+   - What's the realistic viral potential for THIS channel?
+
+3. AUDIENCE PSYCHOLOGY
+   - What would make their specific audience click?
+   - What emotional trigger works for this niche?
+   - How does this serve their viewing intent?
 
 FOR EACH IDEA, PROVIDE:
-1. A compelling video title (optimized for CTR)
-2. Brief description (2-3 sentences explaining the concept)
-3. Viral potential score (0-100, be realistic based on niche, trend potential, AND prediction simulation)
-4. Difficulty level (Easy, Medium, or Hard based on production requirements)
-5. Content type (Tutorial, Review, Vlog, List, Challenge, Story, etc.)
-6. Key points to cover (3-5 bullet points)
-7. Thumbnail concept (brief visual description)
-8. Best posting time/day
-9. **PREDICTION INSIGHT**: A human-readable insight about why this idea should perform well (no raw numbers or metrics)
+- Compelling title (optimized for CTR with their power words)
+- Brief description (2-3 sentences)
+- Viral potential score (0-100, REALISTIC for this channel)
+- Difficulty level (Easy/Medium/Hard based on their typical production)
+- Content type (aligned with their format sweet spots)
+- Key points to cover (3-5 bullets)
+- Thumbnail concept (brief visual description matching their style)
+- Best posting time/day
+- PREDICTION INSIGHT: Why this idea should work for THIS channel
 
-ALSO INCLUDE TOP 3 IDEAS WITH FULL PREDICTIONS:
-For the top 3 highest potential ideas, include complete prediction data:
-- ctrPrediction: Expected performance vs channel average
-- algorithmLikelihood: Promotion potential (low/medium/high)
-- trendAlignment: Topic momentum (declining/neutral/rising/viral_potential)
-- competitionLevel: Market saturation (low/medium/high/saturated)
-- confidenceLevel: Overall prediction confidence (low/medium/high/experimental)
-- whatIfScenario: One alternative approach with predicted impact
+${SELF_CRITIQUE_DIRECTIVE}
 
-Respond in this exact JSON format:
+Return ONLY valid JSON:
 {
   "ideas": [
     {
@@ -151,7 +156,8 @@ Respond in this exact JSON format:
       "keyPoints": ["Point 1", "Point 2", "Point 3"],
       "thumbnailConcept": "Description of thumbnail visual",
       "bestPostingTime": "Tuesday 2-4 PM",
-      "predictionInsight": "This idea leverages your channel's proven expertise in [topic] while tapping into a rising trend. The combination should outperform your typical content."
+      "predictionInsight": "This leverages your proven [format] while tapping into [trend]. Based on your DNA, this should outperform average by [X].",
+      "dnaAlignment": "high/medium/low"
     }
   ],
   "topIdeasWithPredictions": [
@@ -164,18 +170,28 @@ Respond in this exact JSON format:
         "competitionLevel": "medium",
         "confidenceLevel": "high",
         "whatIfScenario": {
-          "alternative": "Frame as a challenge instead of tutorial",
-          "predictedImpact": "Could increase viral potential by 15-20% but harder to produce"
+          "alternative": "Alternative angle description",
+          "predictedImpact": "Impact description"
         },
-        "humanSummary": "I'm confident this will perform well for your channel. It combines what's worked for you before with a trending angle that should boost discovery."
+        "humanSummary": "Natural language summary of why this should work"
       }
     }
   ],
   "trendingTopics": [
-    {"topic": "Trending Topic 1", "relevance": "High", "predictionNote": "Rising fast, act within 1-2 weeks"},
-    {"topic": "Trending Topic 2", "relevance": "Medium", "predictionNote": "Stable trend with room for unique angles"}
-  ]
+    {"topic": "Topic 1", "relevance": "High", "predictionNote": "Timing insight"}
+  ],
+  "strategyInsight": "Overall insight about the content strategy for this batch"
 }`;
+
+    const userPrompt = `Generate ${numberOfIdeas || 10} content ideas for:
+
+TOPIC/NICHE: ${mainTopic}
+TARGET AUDIENCE: ${targetAudience || 'General audience'}
+CONTENT STYLES: ${stylesText}
+${trendingText}
+
+Create ideas specifically designed for THIS channel's DNA and audience.
+Every idea must feel like something this creator would naturally make.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -186,8 +202,8 @@ Respond in this exact JSON format:
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'You are a YouTube content strategist with predictive intelligence. Always respond with valid JSON only.' },
-          { role: 'user', content: prompt }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
       }),
     });
@@ -248,7 +264,9 @@ Respond in this exact JSON format:
 
     return new Response(JSON.stringify({
       ...result,
+      personalizedWithDNA: !!dnaData,
       hasPredictions: !!(result.topIdeasWithPredictions && result.topIdeasWithPredictions.length > 0),
+      generatedAt: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

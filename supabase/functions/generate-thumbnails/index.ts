@@ -1,6 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  CORE_INTELLIGENCE_DIRECTIVE, 
+  ANTI_ROBOT_DIRECTIVE,
+  buildDNAContext,
+  type ChannelInsights 
+} from "../_shared/core-intelligence.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +19,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -28,7 +33,6 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
@@ -40,7 +44,6 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
-
     const { title, topic, emotion, style } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -48,44 +51,102 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Generating thumbnail ideas for user:', userId, 'title:', title);
+    console.log('[generate-thumbnails] User:', userId, 'title:', title);
 
-    const prompt = `You are a YouTube thumbnail design expert. Generate 5 unique thumbnail concept ideas for a YouTube video.
+    // Fetch channel DNA for style-aligned thumbnails
+    const [dnaResult, channelResult] = await Promise.all([
+      supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
 
-Video Title: ${title}
-Main Topic/Subject: ${topic || 'Not specified'}
-Target Emotion: ${emotion || 'Curiosity'}
-Style Preference: ${style || 'Bold'}
+    const dnaData = dnaResult.data;
+    const channelData = channelResult.data;
 
-For each thumbnail concept, provide:
-1. A short concept title (2-4 words)
-2. Main text overlay (max 3-4 words, punchy and readable)
-3. Secondary text (optional, smaller supporting text)
-4. Color scheme with 3 hex colors that work well together
-5. Composition description (layout, focal points, background)
-6. Expression/pose guidance if a face is shown
-7. What type of video this thumbnail works best for
+    const insights: ChannelInsights = {
+      channelName: channelData?.channel_name || null,
+      subscriberCount: channelData?.subscriber_count || null,
+      avgViews: 0,
+      avgEngagement: 0,
+      topTitles: [],
+      bottomTitles: [],
+      dnaData: dnaData as any,
+    };
 
-Make the concepts varied - some with faces, some without. Focus on high CTR (click-through rate) principles:
-- High contrast
-- Readable text at small sizes
-- Emotional triggers
-- Clear focal point
+    const dnaContext = buildDNAContext(insights);
 
-Respond in this exact JSON format:
+    const systemPrompt = `${CORE_INTELLIGENCE_DIRECTIVE}
+
+${dnaContext}
+
+${ANTI_ROBOT_DIRECTIVE}
+
+=== THUMBNAIL INTELLIGENCE ===
+
+You are a YouTube Thumbnail Strategist with deep CTR psychology expertise.
+
+YOUR ROLE:
+Design thumbnail concepts that align with this channel's visual identity and audience psychology.
+Every concept should feel like it belongs on THIS channel, not any random channel.
+
+THUMBNAIL PSYCHOLOGY PRINCIPLES:
+
+1. ATTENTION CAPTURE
+   - High contrast is non-negotiable
+   - Single clear focal point
+   - Readable at small sizes (mobile browse)
+   - 3-second decision window
+
+2. EMOTIONAL TRIGGERS
+   - Match the video's emotional promise
+   - Faces with expressions outperform flat images
+   - Color psychology matters (red = urgency, blue = trust, yellow = energy)
+
+3. TEXT OPTIMIZATION
+   - MAX 3-4 words for main text
+   - Must be readable at 160x90 pixels
+   - Complement the title, don't repeat it
+   - Power words that trigger clicks
+
+4. BRAND CONSISTENCY
+   - Match the channel's established visual language
+   - Color palette should feel familiar to returning viewers
+   - Style should signal the content type
+
+GENERATE 5 DISTINCT CONCEPTS:
+- Vary between: face-focused, object-focused, text-heavy, minimal
+- Each targets a different psychological trigger
+- All must align with the channel's DNA
+
+Return ONLY valid JSON:
 {
   "concepts": [
     {
-      "title": "concept name",
-      "mainText": "MAIN TEXT",
-      "secondaryText": "optional secondary",
+      "title": "2-4 word concept name",
+      "mainText": "MAIN TEXT (max 4 words)",
+      "secondaryText": "optional smaller text",
       "colors": ["#hex1", "#hex2", "#hex3"],
-      "composition": "Description of the layout and visual elements",
-      "expression": "Facial expression or pose guidance",
-      "bestFor": "Tutorial videos"
+      "composition": "Detailed layout description: what's in frame, where elements are positioned",
+      "expression": "If face shown: specific expression. If not: N/A",
+      "bestFor": "What type of video/audience this works best for",
+      "psychologicalTrigger": "The emotion/curiosity this triggers",
+      "ctrPotential": "high/medium/low based on principles"
     }
-  ]
+  ],
+  "topRecommendation": {
+    "conceptIndex": 0,
+    "reason": "Why this is the best choice for THIS specific channel and video"
+  },
+  "styleNote": "How these concepts align with the channel's visual identity"
 }`;
+
+    const userPrompt = `Generate thumbnail concepts for:
+
+VIDEO TITLE: ${title}
+MAIN TOPIC: ${topic || 'Not specified'}
+TARGET EMOTION: ${emotion || 'Curiosity'}
+STYLE PREFERENCE: ${style || 'Bold'}
+
+Create concepts that would stop THIS channel's audience from scrolling.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -96,8 +157,8 @@ Respond in this exact JSON format:
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: 'You are a YouTube thumbnail design expert. Always respond with valid JSON only.' },
-          { role: 'user', content: prompt }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
       }),
     });
@@ -123,7 +184,6 @@ Respond in this exact JSON format:
     const data = await response.json();
     const content = data.choices[0].message.content;
 
-    // Parse JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Failed to parse thumbnail concepts from response');
@@ -131,7 +191,11 @@ Respond in this exact JSON format:
     
     const concepts = JSON.parse(jsonMatch[0]);
 
-    return new Response(JSON.stringify(concepts), {
+    return new Response(JSON.stringify({
+      ...concepts,
+      personalizedWithDNA: !!dnaData,
+      generatedAt: new Date().toISOString()
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
