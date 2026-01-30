@@ -18,22 +18,12 @@ interface VideoData {
   category_id: string | null;
 }
 
-interface ChannelData {
-  id: string;
-  channel_name: string;
-  description: string | null;
-  subscriber_count: number | null;
-  video_count: number | null;
-  total_view_count: number | null;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -50,7 +40,6 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
@@ -68,7 +57,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Analyzing Channel DNA for user:", userId);
+    console.log("🧬 Extracting Channel DNA for user:", userId);
 
     // Fetch user's channel
     const { data: channel, error: channelError } = await supabase
@@ -84,7 +73,7 @@ serve(async (req) => {
       );
     }
 
-    // Fetch user's videos (up to 50 for analysis)
+    // Fetch user's videos (up to 50 for deep analysis)
     const { data: videos, error: videosError } = await supabase
       .from("youtube_videos")
       .select("*")
@@ -99,7 +88,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Analyzing ${videos.length} videos for channel: ${channel.channel_name}`);
+    console.log(`🔬 Deep analyzing ${videos.length} videos for channel: ${channel.channel_name}`);
 
     // Calculate performance metrics
     const totalViews = videos.reduce((sum, v) => sum + (v.view_count || 0), 0);
@@ -110,76 +99,143 @@ serve(async (req) => {
     const avgComments = Math.round(totalComments / videos.length);
     const viewToLikeRatio = totalViews > 0 ? (totalLikes / totalViews * 100) : 0;
 
-    // Identify top performing videos (top 20%)
-    const topPerformingCount = Math.max(3, Math.ceil(videos.length * 0.2));
-    const topVideos = videos.slice(0, topPerformingCount);
+    // Identify performance tiers
+    const sortedByViews = [...videos].sort((a, b) => (b.view_count || 0) - (a.view_count || 0));
+    const topPerformers = sortedByViews.slice(0, Math.ceil(videos.length * 0.2));
+    const bottomPerformers = sortedByViews.slice(-Math.ceil(videos.length * 0.2));
 
-    // Prepare video data for AI analysis
-    const videoSummaries = videos.slice(0, 20).map(v => ({
+    // Prepare deep analysis data
+    const videoAnalysis = videos.slice(0, 30).map(v => ({
       title: v.title,
       views: v.view_count || 0,
       likes: v.like_count || 0,
       comments: v.comment_count || 0,
       engagementRate: v.view_count ? ((v.like_count || 0) + (v.comment_count || 0)) / v.view_count * 100 : 0,
       tags: v.tags || [],
-      description: v.description?.substring(0, 200) || "",
+      descriptionSnippet: v.description?.substring(0, 150) || "",
+      isTopPerformer: topPerformers.some(t => t.id === v.id),
+      isBottomPerformer: bottomPerformers.some(b => b.id === v.id),
     }));
 
-    const topVideoTitles = topVideos.map(v => v.title);
+    // Deep psychological analysis prompt
+    const dnaExtractionPrompt = `You are the Channel DNA Engine of ZainIQ — a deep-analysis intelligence system.
 
-    // AI Analysis prompt
-    const analysisPrompt = `Analyze this YouTube channel's content patterns and create a "Channel DNA" profile.
+You do NOT summarize data. You UNDERSTAND the channel.
+You think like the creator AND the audience at the same time.
 
 CHANNEL: ${channel.channel_name}
-CHANNEL DESCRIPTION: ${channel.description || "Not provided"}
-SUBSCRIBER COUNT: ${channel.subscriber_count || 0}
+DESCRIPTION: ${channel.description || "Not provided"}
+SUBSCRIBERS: ${channel.subscriber_count || 0}
 
-TOP PERFORMING VIDEO TITLES (by views):
-${topVideoTitles.map((t, i) => `${i + 1}. ${t}`).join("\n")}
+TOP PERFORMING VIDEOS (these clicked and retained):
+${topPerformers.map((t, i) => `${i + 1}. "${t.title}" - ${t.view_count?.toLocaleString()} views, ${((t.like_count || 0) / (t.view_count || 1) * 100).toFixed(1)}% engagement`).join("\n")}
 
-VIDEO DATA (sample of ${videoSummaries.length} videos):
-${JSON.stringify(videoSummaries, null, 2)}
+BOTTOM PERFORMING VIDEOS (these died):
+${bottomPerformers.map((b, i) => `${i + 1}. "${b.title}" - ${b.view_count?.toLocaleString()} views`).join("\n")}
+
+FULL VIDEO DATA SAMPLE:
+${JSON.stringify(videoAnalysis, null, 2)}
 
 PERFORMANCE METRICS:
-- Average views: ${avgViews}
-- Average likes: ${avgLikes}
-- Average comments: ${avgComments}
-- View-to-like ratio: ${viewToLikeRatio.toFixed(2)}%
+- Average views: ${avgViews.toLocaleString()}
+- Average likes: ${avgLikes.toLocaleString()}
+- Engagement rate: ${viewToLikeRatio.toFixed(2)}%
+- Videos analyzed: ${videos.length}
 
-Analyze and return a JSON object with this EXACT structure:
+🧬 EXTRACT THE CHANNEL DNA:
+
+Analyze deeply and return a JSON object with this EXACT structure:
+
 {
-  "contentCategories": ["category1", "category2", "category3"],
-  "topPerformingTopics": [
-    {"topic": "topic name", "avgViews": 1000, "frequency": "high"}
+  "coreArchetype": "1-2 word channel personality (e.g., 'Curious Educator', 'Bold Entertainer', 'Street Philosopher')",
+  
+  "emotionalGravityScore": 0-100 (how emotionally heavy/impactful is the content),
+  
+  "curiosityDependencyLevel": "low|medium|high" (how much channel relies on curiosity hooks),
+  
+  "riskToleranceLevel": "low|medium|high" (how experimental is the channel with content),
+  
+  "audienceIntelligenceLevel": "describe target audience sophistication (e.g., 'Tech-savvy beginners seeking simple explanations')",
+  
+  "contentPsychology": {
+    "dominantEmotion": "main emotional trigger (fear, curiosity, authority, humor, etc.)",
+    "emotionalPromiseGap": "describe gap between what titles promise vs what content delivers",
+    "fearVsCuriosityRatio": "e.g., '70% curiosity, 30% fear-based'",
+    "clickTriggers": ["specific patterns that trigger clicks"],
+    "retentionKillers": ["patterns that cause drop-offs"]
+  },
+  
+  "performanceSignature": {
+    "whatSpikes": ["formats/topics that spike CTR"],
+    "whatKills": ["formats/topics that kill retention"],
+    "hiddenGems": ["underperforming quality content patterns"],
+    "viewingIntent": "learn|escape|entertain|transform"
+  },
+  
+  "creatorFingerprint": {
+    "tone": "aggressive|calm|funny|serious|inspirational",
+    "complexityLevel": "simple|moderate|complex",
+    "authorityVsRelatability": "e.g., '60% authority, 40% relatable'",
+    "uniqueVoiceMarkers": ["specific style traits that define this creator"]
+  },
+  
+  "formatSweetSpots": [
+    {"format": "format name", "whyItWorks": "psychological reason", "performanceLevel": "high|medium"}
   ],
+  
+  "killZones": [
+    {"avoid": "content type to avoid", "reason": "why it fails for this channel"}
+  ],
+  
   "titlePatterns": {
     "avgLength": 45,
-    "commonStructures": ["How to...", "X Ways to...", "Why..."],
-    "emotionalTriggers": ["curiosity", "urgency"],
-    "numbersUsed": true
+    "commonStructures": ["working title structures"],
+    "emotionalTriggers": ["emotional words that work"],
+    "numbersUsed": true/false
   },
+  
   "titleFormulas": [
-    {"formula": "[Number] + [Topic] + [Benefit]", "example": "5 Ways to Grow Your Channel Fast"}
+    {"formula": "pattern that works", "example": "actual title example from data"}
   ],
-  "powerWords": ["ultimate", "secret", "proven"],
+  
+  "powerWords": ["words that drive clicks for THIS channel"],
+  
   "toneProfile": {
-    "primary": "educational",
-    "secondary": "entertaining",
-    "formality": "casual",
-    "energy": "high"
+    "primary": "main communication style",
+    "secondary": "supporting style",
+    "formality": "casual|semi-formal|formal",
+    "energy": "low|medium|high"
   },
-  "vocabularyStyle": "conversational and accessible",
-  "emojiUsage": "moderate",
+  
+  "vocabularyStyle": "describe the language style",
+  
+  "emojiUsage": "none|minimal|moderate|heavy",
+  
+  "contentCategories": ["main content buckets"],
+  
+  "topPerformingTopics": [
+    {"topic": "topic name", "avgViews": 1000, "frequency": "high|medium|low"}
+  ],
+  
   "audienceDemographics": {
-    "interests": ["topic1", "topic2"],
-    "skillLevel": "beginner to intermediate",
-    "contentPreferences": ["tutorials", "reviews"]
+    "interests": ["audience interests"],
+    "skillLevel": "beginner|intermediate|advanced|mixed",
+    "contentPreferences": ["what they want to see"]
   },
-  "peakEngagementPatterns": ["videos under 10 minutes perform best", "listicles get high engagement"],
-  "dnaSummary": "A concise 2-3 sentence summary of this channel's unique DNA that can be used to personalize AI outputs. Include the channel's voice, content style, and what makes their content successful."
+  
+  "peakEngagementPatterns": ["patterns that drive high engagement"],
+  
+  "dnaSummary": "A 2-3 sentence summary that captures the channel's soul. This should feel like: 'I completely understand this creator.' Write it as if you ARE the creator explaining your channel to a friend. Make it human, not robotic."
 }
 
-Return ONLY the JSON object, no explanation.`;
+CRITICAL RULES:
+- Think PSYCHOLOGICALLY, not analytically
+- Every insight must be ACTIONABLE
+- The DNA must feel like you truly understood the channel
+- Avoid generic advice - everything must be specific to THIS channel
+- dnaSummary should feel like a friend describing the channel, not a report
+
+Return ONLY the JSON object.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -192,9 +248,9 @@ Return ONLY the JSON object, no explanation.`;
         messages: [
           { 
             role: "system", 
-            content: "You are a YouTube analytics expert. Analyze channel data and identify patterns that define the channel's unique content DNA. Be specific and actionable." 
+            content: "You are the Channel DNA Engine - a deep psychological analysis system that extracts the complete creative, emotional, and strategic identity of YouTube channels. You don't summarize data - you UNDERSTAND channels at their core." 
           },
-          { role: "user", content: analysisPrompt },
+          { role: "user", content: dnaExtractionPrompt },
         ],
       }),
     });
@@ -216,9 +272,11 @@ Return ONLY the JSON object, no explanation.`;
         throw new Error("No valid JSON in response");
       }
     } catch (parseError) {
-      console.error("Failed to parse AI analysis:", parseError);
-      throw new Error("Failed to parse channel analysis");
+      console.error("Failed to parse DNA extraction:", parseError);
+      throw new Error("Failed to extract channel DNA");
     }
+
+    console.log("🧬 DNA extraction complete, saving to database...");
 
     // Store the Channel DNA using service role client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -228,6 +286,20 @@ Return ONLY the JSON object, no explanation.`;
       channel_id: channel.id,
       analyzed_at: new Date().toISOString(),
       videos_analyzed: videos.length,
+      
+      // New psychological DNA fields
+      core_archetype: analysis.coreArchetype || null,
+      emotional_gravity_score: analysis.emotionalGravityScore || null,
+      curiosity_dependency_level: analysis.curiosityDependencyLevel || null,
+      risk_tolerance_level: analysis.riskToleranceLevel || null,
+      audience_intelligence_level: analysis.audienceIntelligenceLevel || null,
+      format_sweet_spots: analysis.formatSweetSpots || [],
+      kill_zones: analysis.killZones || [],
+      content_psychology: analysis.contentPsychology || {},
+      performance_signature: analysis.performanceSignature || {},
+      creator_fingerprint: analysis.creatorFingerprint || {},
+      
+      // Existing fields
       content_categories: analysis.contentCategories || [],
       top_performing_topics: analysis.topPerformingTopics || [],
       title_patterns: analysis.titlePatterns || {},
@@ -258,10 +330,10 @@ Return ONLY the JSON object, no explanation.`;
 
     if (saveError) {
       console.error("Error saving Channel DNA:", saveError);
-      throw new Error("Failed to save channel analysis");
+      throw new Error("Failed to save channel DNA");
     }
 
-    console.log("Channel DNA analysis complete and saved");
+    console.log("✅ Channel DNA locked and saved");
 
     return new Response(JSON.stringify({
       success: true,
@@ -269,7 +341,8 @@ Return ONLY the JSON object, no explanation.`;
       analysis: {
         videosAnalyzed: videos.length,
         channelName: channel.channel_name,
-        ...analysis,
+        coreArchetype: analysis.coreArchetype,
+        emotionalGravityScore: analysis.emotionalGravityScore,
       }
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -277,7 +350,7 @@ Return ONLY the JSON object, no explanation.`;
 
   } catch (error) {
     console.error("Error in analyze-channel-dna:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to analyze channel";
+    const errorMessage = error instanceof Error ? error.message : "Failed to extract channel DNA";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
