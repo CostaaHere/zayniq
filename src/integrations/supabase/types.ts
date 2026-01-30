@@ -96,6 +96,7 @@ export type Database = {
         Row: {
           analyzed_at: string
           audience_demographics: Json | null
+          audience_intelligence_level: string | null
           avg_comments: number | null
           avg_engagement_rate: number | null
           avg_likes: number | null
@@ -103,12 +104,21 @@ export type Database = {
           avg_views: number | null
           channel_id: string | null
           content_categories: Json | null
+          content_psychology: Json | null
+          core_archetype: string | null
           created_at: string
+          creator_fingerprint: Json | null
+          curiosity_dependency_level: string | null
           dna_summary: string | null
           emoji_usage: string | null
+          emotional_gravity_score: number | null
+          format_sweet_spots: Json | null
           id: string
+          kill_zones: Json | null
           peak_engagement_times: Json | null
+          performance_signature: Json | null
           power_words: Json | null
+          risk_tolerance_level: string | null
           title_formulas: Json | null
           title_patterns: Json | null
           tone_profile: Json | null
@@ -122,6 +132,7 @@ export type Database = {
         Insert: {
           analyzed_at?: string
           audience_demographics?: Json | null
+          audience_intelligence_level?: string | null
           avg_comments?: number | null
           avg_engagement_rate?: number | null
           avg_likes?: number | null
@@ -129,12 +140,21 @@ export type Database = {
           avg_views?: number | null
           channel_id?: string | null
           content_categories?: Json | null
+          content_psychology?: Json | null
+          core_archetype?: string | null
           created_at?: string
+          creator_fingerprint?: Json | null
+          curiosity_dependency_level?: string | null
           dna_summary?: string | null
           emoji_usage?: string | null
+          emotional_gravity_score?: number | null
+          format_sweet_spots?: Json | null
           id?: string
+          kill_zones?: Json | null
           peak_engagement_times?: Json | null
+          performance_signature?: Json | null
           power_words?: Json | null
+          risk_tolerance_level?: string | null
           title_formulas?: Json | null
           title_patterns?: Json | null
           tone_profile?: Json | null
@@ -148,6 +168,7 @@ export type Database = {
         Update: {
           analyzed_at?: string
           audience_demographics?: Json | null
+          audience_intelligence_level?: string | null
           avg_comments?: number | null
           avg_engagement_rate?: number | null
           avg_likes?: number | null
@@ -155,12 +176,21 @@ export type Database = {
           avg_views?: number | null
           channel_id?: string | null
           content_categories?: Json | null
+          content_psychology?: Json | null
+          core_archetype?: string | null
           created_at?: string
+          creator_fingerprint?: Json | null
+          curiosity_dependency_level?: string | null
           dna_summary?: string | null
           emoji_usage?: string | null
+          emotional_gravity_score?: number | null
+          format_sweet_spots?: Json | null
           id?: string
+          kill_zones?: Json | null
           peak_engagement_times?: Json | null
+          performance_signature?: Json | null
           power_words?: Json | null
+          risk_tolerance_level?: string | null
           title_formulas?: Json | null
           title_patterns?: Json | null
           tone_profile?: Json | null
