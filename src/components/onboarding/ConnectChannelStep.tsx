@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { ArrowRight, ArrowLeft, Youtube, Link, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Link, Loader2, CheckCircle2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { YouTubeConnectButton } from "@/components/youtube/YouTubeConnectButton";
+import { useYouTubeConnection } from "@/hooks/useYouTubeConnection";
 
 interface ConnectChannelStepProps {
   onNext: () => void;
@@ -18,28 +20,30 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
   const { user } = useAuth();
   const { updateProfile } = useProfile();
   const { toast } = useToast();
+  const { isConnected, channel, isLoading: connectionLoading } = useYouTubeConnection();
   
   const [mode, setMode] = useState<"oauth" | "manual">("oauth");
   const [channelUrl, setChannelUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const [manualConnected, setManualConnected] = useState(false);
   const [channelPreview, setChannelPreview] = useState<{
     name: string;
     thumbnail: string;
     subscribers: string;
   } | null>(null);
 
-  const handleYouTubeConnect = async () => {
-    // For now, show a coming soon message since YouTube OAuth requires additional setup
-    toast({
-      title: "Coming Soon",
-      description: "YouTube OAuth integration is being set up. Please use manual entry for now.",
-    });
-    setMode("manual");
-  };
+  // Sync channel preview when OAuth connection succeeds
+  useEffect(() => {
+    if (isConnected && channel) {
+      setChannelPreview({
+        name: channel.name,
+        thumbnail: channel.thumbnail || `https://ui-avatars.com/api/?name=${encodeURIComponent(channel.name)}&background=dc2626&color=fff&size=100`,
+        subscribers: `${channel.subscriberCount.toLocaleString()} subscribers`,
+      });
+    }
+  }, [isConnected, channel]);
 
   const extractChannelId = (url: string): string | null => {
-    // Handle various YouTube URL formats
     const patterns = [
       /youtube\.com\/channel\/([a-zA-Z0-9_-]+)/,
       /youtube\.com\/c\/([a-zA-Z0-9_-]+)/,
@@ -52,7 +56,6 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
       if (match) return match[1];
     }
 
-    // If just a channel ID is provided
     if (/^[a-zA-Z0-9_-]+$/.test(url)) {
       return url;
     }
@@ -83,8 +86,6 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
     setLoading(true);
 
     try {
-      // For demo purposes, we'll save the channel with placeholder data
-      // In production, you'd fetch channel data from YouTube API
       const channelData = {
         user_id: user?.id,
         youtube_channel_id: channelId,
@@ -107,11 +108,11 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
         thumbnail: `https://ui-avatars.com/api/?name=${encodeURIComponent(channelData.channel_name)}&background=8b5cf6&color=fff&size=100`,
         subscribers: "Pending sync",
       });
-      setConnected(true);
+      setManualConnected(true);
 
       toast({
         title: "Channel connected!",
-        description: "Your channel has been linked successfully",
+        description: "Your channel has been linked. Connect with YouTube for full analytics.",
       });
     } catch (error: any) {
       console.error("Error connecting channel:", error);
@@ -135,6 +136,8 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
     onNext();
   };
 
+  const showConnected = isConnected || manualConnected;
+
   return (
     <div className="space-y-8 animate-fade-up">
       <div className="text-center">
@@ -142,33 +145,15 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
         <p className="text-muted-foreground">Link your YouTube channel to unlock powerful analytics</p>
       </div>
 
-      {!connected ? (
+      {!showConnected ? (
         <>
-          {/* OAuth Option */}
+          {/* OAuth Option - Primary */}
           <div className="space-y-4">
-            <button
-              onClick={handleYouTubeConnect}
-              className={cn(
-                "w-full p-6 rounded-xl border-2 transition-all duration-200",
-                "flex items-center justify-between",
-                mode === "oauth"
-                  ? "border-red-500 bg-red-500/10"
-                  : "border-border hover:border-red-500/50"
-              )}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center">
-                  <Youtube className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-left">
-                  <div className="font-semibold">Connect with YouTube</div>
-                  <div className="text-sm text-muted-foreground">
-                    Automatic sync & full analytics
-                  </div>
-                </div>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground" />
-            </button>
+            <YouTubeConnectButton
+              variant="card"
+              showChannelPreview={false}
+              onConnected={() => {}}
+            />
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -179,7 +164,7 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
               </div>
             </div>
 
-            {/* Manual Entry */}
+            {/* Manual Entry - Fallback */}
             <button
               onClick={() => setMode("manual")}
               className={cn(
@@ -197,7 +182,7 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
                 <div className="text-left">
                   <div className="font-semibold">Enter Channel URL</div>
                   <div className="text-sm text-muted-foreground">
-                    Paste your channel link manually
+                    Manual entry (limited features)
                   </div>
                 </div>
               </div>
@@ -263,7 +248,7 @@ const ConnectChannelStep = ({ onNext, onBack }: ConnectChannelStepProps) => {
           <ArrowLeft className="w-5 h-5 mr-2" />
           Back
         </Button>
-        {connected ? (
+        {showConnected ? (
           <Button
             onClick={handleNext}
             className="flex-1 h-12 bg-gradient-to-r from-primary to-accent hover:opacity-90"

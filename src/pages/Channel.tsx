@@ -40,11 +40,10 @@ import {
   Cell,
 } from "recharts";
 import { useYouTubeAnalytics } from "@/hooks/useYouTubeAnalytics";
-import { useAuth } from "@/contexts/AuthContext";
+import { YouTubeConnectButton } from "@/components/youtube/YouTubeConnectButton";
 import { format, parseISO } from "date-fns";
 
 const Channel = () => {
-  const { signInWithGoogle } = useAuth();
   const {
     data: youtubeData,
     loading,
@@ -83,11 +82,6 @@ const Channel = () => {
     }
   };
 
-  // Handle reconnect with YouTube
-  const handleReconnectYouTube = async () => {
-    await signInWithGoogle();
-  };
-
   // Generate engagement data from videos
   const engagementData = youtubeData.videos.length > 0 ? [
     { 
@@ -119,17 +113,14 @@ const Channel = () => {
       <div className="space-y-6">
         {/* YouTube Auth Required Alert */}
         {youtubeData.needsYouTubeAuth && !loading && (
-          <Alert className="border-yellow-500/50 bg-yellow-500/10">
-            <Youtube className="h-4 w-4 text-yellow-500" />
+          <Alert className="border-primary/50 bg-primary/10">
+            <Youtube className="h-4 w-4 text-primary" />
             <AlertTitle>Connect Your YouTube Channel</AlertTitle>
             <AlertDescription className="mt-2">
               <p className="mb-3">
                 Sign in with Google and grant YouTube access to see your real channel data.
               </p>
-              <Button onClick={handleReconnectYouTube} variant="outline" size="sm" className="gap-2">
-                <Youtube className="w-4 h-4" />
-                Connect YouTube
-              </Button>
+              <YouTubeConnectButton showChannelPreview={false} />
             </AlertDescription>
           </Alert>
         )}
