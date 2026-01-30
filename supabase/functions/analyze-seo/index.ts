@@ -1,6 +1,14 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  CORE_INTELLIGENCE_DIRECTIVE, 
+  ANTI_ROBOT_DIRECTIVE,
+  SELF_CRITIQUE_DIRECTIVE,
+  buildDNAContext,
+  buildPerformanceContext,
+  type ChannelInsights 
+} from "../_shared/core-intelligence.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +21,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -28,7 +35,6 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
@@ -40,7 +46,6 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
-
     const { title, description, tags } = await req.json();
     
     if (!title) {
@@ -55,25 +60,104 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Analyzing SEO for user:', userId, 'title:', title);
+    console.log('[analyze-seo] User:', userId, 'title:', title);
 
-    const systemPrompt = `You are a YouTube SEO expert. Analyze the provided video metadata and provide detailed scoring and recommendations.
+    // Fetch channel data for contextual analysis
+    const [channelResult, dnaResult, videosResult] = await Promise.all([
+      supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("youtube_videos").select("*").eq("user_id", userId).order("view_count", { ascending: false }).limit(15),
+    ]);
 
-Score each category from 0-100 and provide specific, actionable recommendations.
+    const channelData = channelResult.data;
+    const dnaData = dnaResult.data;
+    const videosData = videosResult.data || [];
 
-Return your analysis in this exact JSON format:
+    const avgViews = videosData.length > 0 
+      ? videosData.reduce((sum: number, v: any) => sum + (v.view_count || 0), 0) / videosData.length 
+      : 1000;
+    const avgLikes = videosData.length > 0
+      ? videosData.reduce((sum: number, v: any) => sum + (v.like_count || 0), 0) / videosData.length
+      : 50;
+    const avgEngagement = avgViews > 0 ? (avgLikes / avgViews) * 100 : 3;
+    
+    const topTitles = videosData.slice(0, 5).map((v: any) => v.title);
+    const bottomTitles = [...videosData].sort((a: any, b: any) => (a.view_count || 0) - (b.view_count || 0)).slice(0, 3).map((v: any) => v.title);
+
+    const insights: ChannelInsights = {
+      channelName: channelData?.channel_name || null,
+      subscriberCount: channelData?.subscriber_count || null,
+      avgViews,
+      avgEngagement,
+      topTitles,
+      bottomTitles,
+      dnaData: dnaData as any,
+    };
+
+    const dnaContext = buildDNAContext(insights);
+    const performanceContext = buildPerformanceContext(insights);
+
+    const systemPrompt = `${CORE_INTELLIGENCE_DIRECTIVE}
+
+${dnaContext}
+
+${performanceContext}
+
+${ANTI_ROBOT_DIRECTIVE}
+
+=== SEO ANALYSIS INTELLIGENCE ===
+
+You are a YouTube SEO Analyst with deep expertise in discoverability optimization.
+
+YOUR ROLE:
+Analyze this video's metadata RELATIVE to the channel's patterns and proven success.
+Compare against their top performers. Identify gaps and opportunities.
+Provide actionable, specific recommendations - not generic SEO advice.
+
+ANALYSIS FRAMEWORK:
+
+1. TITLE ANALYSIS (0-100)
+   - CTR potential based on channel's historical patterns
+   - Power word usage vs channel's proven power words
+   - Length and readability optimization
+   - Comparison to top-performing titles
+
+2. DESCRIPTION ANALYSIS (0-100)
+   - Hook strength in first 150 characters
+   - Keyword integration and placement
+   - Structure and scannability
+   - CTA effectiveness
+
+3. TAG ANALYSIS (0-100)
+   - Relevance and coverage
+   - Mix of broad vs specific
+   - Alignment with channel's niche
+
+4. KEYWORD ANALYSIS (0-100)
+   - Primary keyword identification
+   - Keyword density assessment
+   - Search intent alignment
+
+RECOMMENDATIONS:
+Prioritize by impact: HIGH, MEDIUM, LOW
+Be specific - reference the actual content
+Explain the expected impact
+
+${SELF_CRITIQUE_DIRECTIVE}
+
+Return ONLY valid JSON:
 {
   "overallScore": 75,
   "scores": {
     "title": {
       "score": 80,
-      "issues": ["Issue 1", "Issue 2"],
-      "suggestions": ["Suggestion 1", "Suggestion 2"]
+      "issues": ["Specific issue 1", "Specific issue 2"],
+      "suggestions": ["Specific suggestion 1", "Specific suggestion 2"]
     },
     "description": {
       "score": 70,
       "issues": ["Issue 1"],
-      "suggestions": ["Suggestion 1", "Suggestion 2"]
+      "suggestions": ["Suggestion 1"]
     },
     "tags": {
       "score": 65,
@@ -84,7 +168,7 @@ Return your analysis in this exact JSON format:
       "score": 72,
       "primaryKeyword": "detected keyword",
       "keywordDensity": "good/low/high",
-      "suggestions": ["Add keyword X", "Remove keyword Y"]
+      "suggestions": ["Keyword suggestion 1"]
     }
   },
   "recommendations": [
@@ -96,20 +180,20 @@ Return your analysis in this exact JSON format:
     }
   ],
   "competitorInsights": {
-    "titlePatterns": ["Pattern 1", "Pattern 2"],
-    "suggestedFormats": ["Format suggestion 1"]
-  }
-}
-
-Be thorough but practical. Focus on YouTube-specific SEO best practices.`;
+    "titlePatterns": ["Pattern from top performers"],
+    "suggestedFormats": ["Format suggestion based on channel DNA"]
+  },
+  "overallInsight": "A human-readable summary of the SEO health and top priority action"
+}`;
 
     const userPrompt = `Analyze this YouTube video's SEO:
 
-Title: ${title}
-${description ? `Description: ${description}` : 'Description: Not provided'}
-${tags?.length ? `Tags: ${tags.join(', ')}` : 'Tags: None provided'}
+TITLE: ${title}
+DESCRIPTION: ${description || 'Not provided'}
+TAGS: ${tags?.length ? tags.join(', ') : 'None provided'}
 
-Provide a comprehensive SEO analysis with scores and actionable recommendations.`;
+Provide analysis relative to this channel's proven patterns and DNA.
+Focus on actionable improvements, not generic advice.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -147,7 +231,6 @@ Provide a comprehensive SEO analysis with scores and actionable recommendations.
     const data = await response.json();
     const content = data.choices[0].message.content;
 
-    // Parse JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('Failed to parse SEO analysis from response');
@@ -155,7 +238,11 @@ Provide a comprehensive SEO analysis with scores and actionable recommendations.
     
     const analysis = JSON.parse(jsonMatch[0]);
 
-    return new Response(JSON.stringify(analysis), {
+    return new Response(JSON.stringify({
+      ...analysis,
+      personalizedWithDNA: !!dnaData,
+      analyzedAt: new Date().toISOString()
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

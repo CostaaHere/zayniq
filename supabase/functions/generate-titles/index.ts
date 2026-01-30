@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  CORE_INTELLIGENCE_DIRECTIVE, 
+  ANTI_ROBOT_DIRECTIVE,
+  SELF_CRITIQUE_DIRECTIVE 
+} from "../_shared/core-intelligence.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -178,7 +183,11 @@ CRITICAL SELF-CRITIQUE:
 - Only present titles that pass the predictive threshold
 `;
 
-    const systemPrompt = `You are an elite YouTube growth strategist with deep expertise in:
+    const systemPrompt = `${CORE_INTELLIGENCE_DIRECTIVE}
+
+${ANTI_ROBOT_DIRECTIVE}
+
+You are an ELITE YouTube Title Strategist with deep expertise in:
 - Click-Through Rate optimization psychology
 - YouTube algorithm mechanics
 - Viewer behavior patterns
@@ -189,6 +198,8 @@ ${dnaContext}
 ${predictionContext}
 
 You are generating an INTENT-BASED TITLE INTELLIGENCE report with PREDICTIVE SIMULATION.
+
+${SELF_CRITIQUE_DIRECTIVE}
 
 GENERATE TITLES IN 5 PSYCHOLOGICAL CATEGORIES:
 

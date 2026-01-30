@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { 
+  CORE_INTELLIGENCE_DIRECTIVE, 
+  ANTI_ROBOT_DIRECTIVE,
+  buildDNAContext,
+  type ChannelInsights 
+} from "../_shared/core-intelligence.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +18,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -27,7 +32,6 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
     
@@ -39,7 +43,6 @@ serve(async (req) => {
     }
 
     const userId = claimsData.claims.sub;
-
     const { topic, niche } = await req.json();
     
     if (!topic || topic.trim().length === 0) {
@@ -55,12 +58,80 @@ serve(async (req) => {
       throw new Error("AI service not configured");
     }
 
-    const systemPrompt = `You are a YouTube SEO keyword research expert. Generate keyword suggestions for YouTube content creators.
+    console.log("[generate-keywords] User:", userId, "topic:", topic);
 
-Your response must be valid JSON with this exact structure:
+    // Fetch channel DNA for intelligent keyword discovery
+    const [dnaResult, channelResult] = await Promise.all([
+      supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
+
+    const dnaData = dnaResult.data;
+    const channelData = channelResult.data;
+
+    const insights: ChannelInsights = {
+      channelName: channelData?.channel_name || null,
+      subscriberCount: channelData?.subscriber_count || null,
+      avgViews: 0,
+      avgEngagement: 0,
+      topTitles: [],
+      bottomTitles: [],
+      dnaData: dnaData as any,
+    };
+
+    const dnaContext = buildDNAContext(insights);
+
+    const systemPrompt = `${CORE_INTELLIGENCE_DIRECTIVE}
+
+${dnaContext}
+
+${ANTI_ROBOT_DIRECTIVE}
+
+=== KEYWORD DISCOVERY INTELLIGENCE ===
+
+You are a YouTube Keyword Research Strategist with SEO expertise.
+
+YOUR ROLE:
+Discover keywords that this specific channel can realistically rank for.
+Consider their current authority, niche position, and content style.
+Don't just suggest high-volume keywords - suggest WINNABLE keywords.
+
+KEYWORD DIFFICULTY ASSESSMENT:
+- LOW: Achievable for smaller channels, less competition
+- MEDIUM: Requires good content, some competition
+- HIGH: Competitive, needs authority or unique angle
+
+KEYWORD CATEGORIES:
+
+1. PRIMARY KEYWORDS (3-5)
+   - Core terms that define the topic
+   - Balance volume with rankability
+   - Consider channel's current authority
+
+2. LONG-TAIL KEYWORDS (5-10)
+   - Specific, lower-competition phrases
+   - Higher intent, easier to rank
+   - "How to [specific thing] for [specific audience]"
+
+3. QUESTION KEYWORDS (5-10)
+   - Start with: how to, what is, why, when, can you
+   - These drive YouTube search traffic
+   - Think like someone NEW to this topic
+
+4. TRENDING TOPICS (3-5)
+   - Currently rising in relevance
+   - Time-sensitive opportunities
+   - Could boost discoverability if acted on quickly
+
+FOR EACH KEYWORD:
+- Assess realistic difficulty for THIS channel
+- Consider if it aligns with their DNA/niche
+- Prioritize actionable opportunities
+
+Return ONLY valid JSON:
 {
   "primary_keywords": [
-    {"keyword": "string", "difficulty": "low" | "medium" | "high"}
+    {"keyword": "string", "difficulty": "low" | "medium" | "high", "rationale": "Why this keyword fits the channel"}
   ],
   "longtail_keywords": [
     {"keyword": "string", "difficulty": "low" | "medium" | "high"}
@@ -69,27 +140,18 @@ Your response must be valid JSON with this exact structure:
     {"keyword": "string", "difficulty": "low" | "medium" | "high"}
   ],
   "trending_topics": [
-    {"keyword": "string", "difficulty": "low" | "medium" | "high"}
-  ]
-}
+    {"keyword": "string", "difficulty": "low" | "medium" | "high", "urgency": "Act now / This week / This month"}
+  ],
+  "strategy_insight": "One paragraph explaining the overall keyword strategy and best opportunities for this channel"
+}`;
 
-Guidelines:
-- primary_keywords: 3-5 high-intent keywords that are broad but relevant
-- longtail_keywords: 5-10 specific, longer phrases with lower competition
-- question_keywords: 5-10 questions starting with "how to", "what is", "why", "when", etc.
-- trending_topics: 3-5 currently trending related topics
-- Difficulty should reflect YouTube search competition (low = easy to rank, high = very competitive)
-- Make keywords specific to the topic and niche provided
-- Focus on searchable, YouTube-friendly phrases`;
+    const userPrompt = `Generate YouTube keyword suggestions for:
 
-    const userPrompt = `Generate YouTube keyword suggestions for the following:
+TOPIC: ${topic}
+${niche ? `NICHE/CATEGORY: ${niche}` : ""}
 
-Topic: ${topic}
-${niche ? `Niche/Category: ${niche}` : ""}
-
-Provide diverse, actionable keywords that a YouTube creator could use for video titles, descriptions, and tags.`;
-
-    console.log("Calling Lovable AI Gateway for user:", userId);
+Provide diverse, actionable keywords that this creator can realistically target.
+Focus on keywords that match their channel's positioning and authority level.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -140,7 +202,8 @@ Provide diverse, actionable keywords that a YouTube creator could use for video 
                         content.match(/```\s*([\s\S]*?)\s*```/) ||
                         [null, content];
       const jsonStr = jsonMatch[1] || content;
-      keywords = JSON.parse(jsonStr.trim());
+      const cleanJson = jsonStr.trim().match(/\{[\s\S]*\}/);
+      keywords = JSON.parse(cleanJson ? cleanJson[0] : jsonStr);
     } catch (parseError) {
       console.error("Failed to parse AI response");
       throw new Error("Failed to parse keyword suggestions");
@@ -166,15 +229,16 @@ Provide diverse, actionable keywords that a YouTube creator could use for video 
       
       if (insertError) {
         console.error("Failed to save generation");
-      } else {
-        console.log("Generation saved successfully");
       }
     } catch (dbError) {
       console.error("Database error");
-      // Continue anyway - don't fail the request
     }
 
-    return new Response(JSON.stringify(keywords), {
+    return new Response(JSON.stringify({
+      ...keywords,
+      personalizedWithDNA: !!dnaData,
+      generatedAt: new Date().toISOString()
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
