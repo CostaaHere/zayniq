@@ -62,9 +62,9 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
+    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Authentication required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -79,13 +79,18 @@ serve(async (req) => {
     });
     const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims?.sub) {
       return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
+        JSON.stringify({ error: "Invalid or expired authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const userId = claimsData.claims.sub;
 
     const { topic, keyword, tone, includeEmoji, channelDNA } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -94,13 +99,13 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("[generate-titles] Generating with prediction engine for:", user.id, "topic:", topic);
+    console.log("[generate-titles] Generating with prediction engine for:", userId, "topic:", topic);
 
     // Fetch channel metrics for prediction engine
     const [channelResult, dnaResult, videosResult] = await Promise.all([
-      supabase.from("channels").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("channel_dna").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("youtube_videos").select("*").eq("user_id", user.id).order("view_count", { ascending: false }).limit(20),
+      supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("youtube_videos").select("*").eq("user_id", userId).order("view_count", { ascending: false }).limit(20),
     ]);
 
     const channelData = channelResult.data;
@@ -363,7 +368,7 @@ Remember:
     if (intelligence.prediction) {
       try {
         await serviceSupabase.from('performance_predictions').insert({
-          user_id: user.id,
+          user_id: userId,
           feature_type: 'title',
           content_reference: intelligence.topPick?.title || topic,
           predicted_ctr_range: intelligence.prediction.ctr?.predictedRange || {},

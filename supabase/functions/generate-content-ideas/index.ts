@@ -13,8 +13,9 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication using getClaims() for efficient JWT validation
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({ error: "Authentication required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -29,13 +30,18 @@ serve(async (req) => {
     });
     const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // Use getClaims() for efficient JWT validation - verifies signature and expiration locally
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims?.sub) {
       return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
+        JSON.stringify({ error: "Invalid or expired authentication" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const userId = claimsData.claims.sub;
 
     const { topic, niche, targetAudience, contentStyles, includeTrending, numberOfIdeas } = await req.json();
     
@@ -47,13 +53,13 @@ serve(async (req) => {
     // Use custom topic if provided, otherwise fallback to niche
     const mainTopic = topic?.trim() || niche || 'General';
     
-    console.log('[generate-content-ideas] User:', user.id, 'topic:', mainTopic, 'count:', numberOfIdeas);
+    console.log('[generate-content-ideas] User:', userId, 'topic:', mainTopic, 'count:', numberOfIdeas);
 
     // Fetch channel data for prediction engine
     const [channelResult, dnaResult, videosResult] = await Promise.all([
-      supabase.from("channels").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("channel_dna").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("youtube_videos").select("*").eq("user_id", user.id).order("view_count", { ascending: false }).limit(20),
+      supabase.from("channels").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("channel_dna").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("youtube_videos").select("*").eq("user_id", userId).order("view_count", { ascending: false }).limit(20),
     ]);
 
     const channelData = channelResult.data;
@@ -221,7 +227,7 @@ Respond in this exact JSON format:
           const idea = result.ideas[topIdea.ideaIndex];
           if (idea && topIdea.prediction) {
             await serviceSupabase.from('performance_predictions').insert({
-              user_id: user.id,
+              user_id: userId,
               feature_type: 'content_idea',
               content_reference: idea.title,
               ctr_confidence: topIdea.prediction.confidenceLevel || 'medium',
