@@ -496,7 +496,7 @@ If they're asking for truth, give it straight.`;
           { role: "user", content: taskPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 2500,
+        max_completion_tokens: 2500,
       }),
     });
 
