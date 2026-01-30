@@ -19,10 +19,24 @@ export interface CoachResponse {
   response: string;
   metrics: CoachMetrics;
   timestamp: Date;
+  isNew?: boolean;
+}
+
+export interface UserMessage {
+  content: string;
+  timestamp: Date;
+  coachType: CoachType;
+}
+
+export interface ChatMessage {
+  type: "user" | "coach";
+  content: string | CoachResponse;
+  timestamp: Date;
+  isNew?: boolean;
 }
 
 export interface UseYouTubeCoachReturn {
-  responses: CoachResponse[];
+  messages: ChatMessage[];
   loading: boolean;
   error: string | null;
   askCoach: (coachType: CoachType, question?: string) => Promise<void>;
@@ -33,7 +47,7 @@ export const useYouTubeCoach = (): UseYouTubeCoachReturn => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const [responses, setResponses] = useState<CoachResponse[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +61,14 @@ export const useYouTubeCoach = (): UseYouTubeCoachReturn => {
       return;
     }
 
+    // Add user message to chat immediately
+    const userMessage: ChatMessage = {
+      type: "user",
+      content: question || getQuickActionLabel(coachType),
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
     setLoading(true);
     setError(null);
 
@@ -63,7 +85,7 @@ export const useYouTubeCoach = (): UseYouTubeCoachReturn => {
         throw new Error(data.error);
       }
 
-      const newResponse: CoachResponse = {
+      const coachResponse: CoachResponse = {
         coachType: data.coachType,
         response: data.response,
         metrics: {
@@ -74,9 +96,22 @@ export const useYouTubeCoach = (): UseYouTubeCoachReturn => {
           hasDNA: data.metrics?.hasDNA || false,
         },
         timestamp: new Date(),
+        isNew: true,
       };
 
-      setResponses(prev => [...prev, newResponse]);
+      const coachMessage: ChatMessage = {
+        type: "coach",
+        content: coachResponse,
+        timestamp: new Date(),
+        isNew: true,
+      };
+
+      setMessages(prev => [...prev, coachMessage]);
+
+      // Mark as not new after a delay
+      setTimeout(() => {
+        setMessages(prev => prev.map(msg => ({ ...msg, isNew: false })));
+      }, 100);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to get coaching advice";
@@ -94,14 +129,27 @@ export const useYouTubeCoach = (): UseYouTubeCoachReturn => {
   }, [user, toast]);
 
   const clearHistory = useCallback(() => {
-    setResponses([]);
+    setMessages([]);
   }, []);
 
   return {
-    responses,
+    messages,
     loading,
     error,
     askCoach,
     clearHistory,
   };
 };
+
+function getQuickActionLabel(type: CoachType): string {
+  switch (type) {
+    case "diagnosis":
+      return "Give me a full channel diagnosis";
+    case "weakPoints":
+      return "What are my channel's weak points?";
+    case "nextContent":
+      return "What content should I create next week?";
+    case "custom":
+      return "Custom question";
+  }
+}

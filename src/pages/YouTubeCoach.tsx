@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Bot, RefreshCw, Loader2, AlertCircle } from "lucide-react";
+import { Bot, RefreshCw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -8,13 +8,15 @@ import CoachQuickActions from "@/components/coach/CoachQuickActions";
 import CoachWelcome from "@/components/coach/CoachWelcome";
 import CoachMessage from "@/components/coach/CoachMessage";
 import CoachInput from "@/components/coach/CoachInput";
-import { useYouTubeCoach, CoachType } from "@/hooks/useYouTubeCoach";
+import CoachThinkingIndicator from "@/components/coach/CoachThinkingIndicator";
+import UserMessage from "@/components/coach/UserMessage";
+import { useYouTubeCoach, CoachType, CoachResponse } from "@/hooks/useYouTubeCoach";
 import { useYouTubeAnalytics } from "@/hooks/useYouTubeAnalytics";
 import { useChannelDNA } from "@/hooks/useChannelDNA";
 import { Link } from "react-router-dom";
 
 const YouTubeCoach = () => {
-  const { responses, loading, error, askCoach, clearHistory } = useYouTubeCoach();
+  const { messages, loading, error, askCoach, clearHistory } = useYouTubeCoach();
   const { data: ytData, loading: ytLoading } = useYouTubeAnalytics();
   const { hasDNA, analyzing: dnaAnalyzing } = useChannelDNA();
   
@@ -22,10 +24,10 @@ const YouTubeCoach = () => {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (responses.length > 0) {
+    if (messages.length > 0 || loading) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [responses]);
+  }, [messages, loading]);
 
   const handleQuickAction = (type: CoachType) => {
     askCoach(type);
@@ -57,7 +59,7 @@ const YouTubeCoach = () => {
               </p>
             </div>
           </div>
-          {responses.length > 0 && (
+          {messages.length > 0 && (
             <Button
               variant="outline"
               size="sm"
@@ -105,24 +107,36 @@ const YouTubeCoach = () => {
         {/* Chat Area */}
         <div className={cn(
           "min-h-[400px] rounded-xl",
-          "bg-card/50 border border-border/50",
-          "flex flex-col"
+          "bg-card/30 border border-border/30",
+          "flex flex-col",
+          "backdrop-blur-sm"
         )}>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {responses.length === 0 ? (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {messages.length === 0 && !loading ? (
               <CoachWelcome />
             ) : (
               <>
-                {responses.map((response, index) => (
-                  <CoachMessage key={index} response={response} />
+                {messages.map((message, index) => (
+                  message.type === "user" ? (
+                    <UserMessage 
+                      key={index} 
+                      content={message.content as string} 
+                    />
+                  ) : (
+                    <CoachMessage 
+                      key={index} 
+                      response={message.content as CoachResponse}
+                      isNew={message.isNew}
+                    />
+                  )
                 ))}
+                
+                {/* Thinking Indicator */}
                 {loading && (
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Analyzing your channel data...</span>
-                  </div>
+                  <CoachThinkingIndicator />
                 )}
+                
                 <div ref={messagesEndRef} />
               </>
             )}
@@ -151,7 +165,7 @@ const YouTubeCoach = () => {
           )}
 
           {/* Input Area */}
-          <div className="p-4 border-t border-border/50">
+          <div className="p-4 border-t border-border/30">
             <CoachInput 
               onSubmit={handleCustomQuestion} 
               loading={loading}
