@@ -51,25 +51,31 @@ export function useYouTubeConnection() {
     return !!googleIdentity && !!providerToken;
   }, [session, user]);
 
-  // Check for stored OAuth tokens (for users who connected via separate OAuth flow)
+  // Check for stored OAuth tokens using the secure view (doesn't expose raw tokens)
   const checkStoredTokens = useCallback(async () => {
     if (!user?.id) return null;
 
     try {
+      // Use the secure view that only exposes connection status, not raw tokens
       const { data, error } = await supabase
-        .from("youtube_oauth_tokens")
+        .from("youtube_connection_status")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) {
-        console.error("Error checking stored tokens:", error);
+        console.error("Error checking connection status:", error);
         return null;
       }
 
-      return data;
+      // Return in a format compatible with the rest of the hook
+      return data ? {
+        ...data,
+        // The view provides is_token_valid instead of raw access_token
+        access_token: data.is_token_valid ? "valid" : null,
+      } : null;
     } catch (error) {
-      console.error("Error checking stored tokens:", error);
+      console.error("Error checking connection status:", error);
       return null;
     }
   }, [user]);
