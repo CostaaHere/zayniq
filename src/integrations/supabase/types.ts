@@ -683,29 +683,22 @@ export type Database = {
           user_id: string | null
           youtube_channel_id: string | null
         }
-        Insert: {
-          channel_name?: string | null
-          channel_thumbnail?: string | null
-          is_token_valid?: never
-          scopes?: string[] | null
-          updated_at?: string | null
-          user_id?: string | null
-          youtube_channel_id?: string | null
-        }
-        Update: {
-          channel_name?: string | null
-          channel_thumbnail?: string | null
-          is_token_valid?: never
-          scopes?: string[] | null
-          updated_at?: string | null
-          user_id?: string | null
-          youtube_channel_id?: string | null
-        }
         Relationships: []
       }
     }
     Functions: {
-      [_ in never]: never
+      get_youtube_connection_status: {
+        Args: { p_user_id: string }
+        Returns: {
+          channel_name: string
+          channel_thumbnail: string
+          is_token_valid: boolean
+          scopes: string[]
+          updated_at: string
+          user_id: string
+          youtube_channel_id: string
+        }[]
+      }
     }
     Enums: {
       subscription_tier: "free" | "pro" | "agency"
