@@ -713,6 +713,24 @@ export type Database = {
           user_id: string | null
           youtube_channel_id: string | null
         }
+        Insert: {
+          channel_name?: string | null
+          channel_thumbnail?: string | null
+          is_token_valid?: never
+          scopes?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+          youtube_channel_id?: string | null
+        }
+        Update: {
+          channel_name?: string | null
+          channel_thumbnail?: string | null
+          is_token_valid?: never
+          scopes?: string[] | null
+          updated_at?: string | null
+          user_id?: string | null
+          youtube_channel_id?: string | null
+        }
         Relationships: []
       }
     }
