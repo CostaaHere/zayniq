@@ -11,6 +11,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
+  connectYouTube: () => Promise<{ error: Error | null }>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
 }
@@ -91,8 +92,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate("/signin");
   };
 
+  // Basic Google sign-in for authentication (without YouTube scopes)
   const signInWithGoogle = async () => {
     const redirectTo = `${window.location.origin}/auth/callback`;
+    const inIframe = (() => {
+      try {
+        return window.self !== window.top;
+      } catch {
+        return true;
+      }
+    })();
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        skipBrowserRedirect: inIframe,
+      },
+    });
+
+    // In iframe, open in new tab
+    if (inIframe && !error && data?.url) {
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    }
+
+    return { error };
+  };
+
+  // YouTube-specific connection with YouTube API scopes
+  // Always uses signInWithOAuth to avoid "Manual linking is disabled" error
+  const connectYouTube = async () => {
+    const redirectTo = `${window.location.origin}/auth/callback?youtube=true`;
     const inIframe = (() => {
       try {
         return window.self !== window.top;
@@ -109,27 +139,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         prompt: "consent",
         include_granted_scopes: "true",
       },
+      skipBrowserRedirect: inIframe,
     } as const;
 
-    // If the user is already signed in (email/password), link Google to the SAME user.
-    // This avoids creating a second account (which causes the "no data" / auth loop symptoms).
-    const startOAuth = user
-      ? () => supabase.auth.linkIdentity({ provider: "google", options: oauthOptions })
-      : () => supabase.auth.signInWithOAuth({ provider: "google", options: oauthOptions });
+    // Always use signInWithOAuth - don't use linkIdentity which causes "Manual linking is disabled" error
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: oauthOptions,
+    });
 
-    // Google blocks many OAuth pages inside iframes/webviews.
-    // In Lovable live preview (iframe), open the OAuth flow in a new tab.
-    if (inIframe) {
-      const { data, error } = await startOAuth().then(({ data, error }: any) => ({ data, error }));
-
-      if (!error && data?.url) {
-        window.open(data.url, "_blank", "noopener,noreferrer");
-      }
-
-      return { error };
+    // In iframe, open in new tab
+    if (inIframe && !error && data?.url) {
+      window.open(data.url, "_blank", "noopener,noreferrer");
     }
 
-    const { error } = await startOAuth();
     return { error };
   };
 
@@ -157,6 +180,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signUp,
         signOut,
         signInWithGoogle,
+        connectYouTube,
         resetPassword,
         updatePassword,
       }}

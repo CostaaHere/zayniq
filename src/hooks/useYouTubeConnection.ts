@@ -24,7 +24,7 @@ export interface YouTubeConnectionState {
 }
 
 export function useYouTubeConnection() {
-  const { user, session, signInWithGoogle } = useAuth();
+  const { user, session, connectYouTube: authConnectYouTube } = useAuth();
   const { toast } = useToast();
   
   const [state, setState] = useState<YouTubeConnectionState>({
@@ -36,7 +36,7 @@ export function useYouTubeConnection() {
     hasProviderToken: false,
   });
 
-  // Check for provider token
+  // Check for provider token in session
   const checkProviderToken = useCallback(async () => {
     if (!session) return false;
     
@@ -51,7 +51,30 @@ export function useYouTubeConnection() {
     return !!googleIdentity && !!providerToken;
   }, [session, user]);
 
-  // Fetch stored channel data
+  // Check for stored OAuth tokens (for users who connected via separate OAuth flow)
+  const checkStoredTokens = useCallback(async () => {
+    if (!user?.id) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("youtube_oauth_tokens")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error checking stored tokens:", error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error checking stored tokens:", error);
+      return null;
+    }
+  }, [user]);
+
+  // Fetch stored channel data from database
   const fetchStoredData = useCallback(async () => {
     if (!session?.access_token) return null;
 
@@ -75,20 +98,30 @@ export function useYouTubeConnection() {
   // Sync YouTube data using provider token
   const syncYouTubeData = useCallback(async () => {
     if (!session?.provider_token) {
-      setState((prev) => ({
-        ...prev,
-        error: "YouTube access not available. Please reconnect with Google.",
-      }));
-      return false;
+      // Check for stored tokens as fallback
+      const storedTokens = await checkStoredTokens();
+      if (!storedTokens?.access_token) {
+        setState((prev) => ({
+          ...prev,
+          error: "YouTube access not available. Please reconnect with YouTube.",
+        }));
+        return false;
+      }
     }
 
     setState((prev) => ({ ...prev, isSyncing: true, error: null }));
 
     try {
+      const tokenToUse = session?.provider_token;
+      
+      if (!tokenToUse) {
+        throw new Error("No YouTube access token available");
+      }
+
       const response = await supabase.functions.invoke("youtube-oauth", {
         body: {
           action: "syncMyData",
-          providerToken: session.provider_token,
+          providerToken: tokenToUse,
           maxResults: 50,
         },
       });
@@ -98,6 +131,19 @@ export function useYouTubeConnection() {
       }
 
       const { channel } = response.data;
+
+      // Store the token for future use
+      if (user?.id && session?.provider_token) {
+        await supabase.from("youtube_oauth_tokens").upsert({
+          user_id: user.id,
+          access_token: session.provider_token,
+          refresh_token: session.provider_refresh_token || null,
+          youtube_channel_id: channel.id,
+          channel_name: channel.name,
+          channel_thumbnail: channel.thumbnail,
+          scopes: ["youtube.readonly"],
+        }, { onConflict: "user_id" });
+      }
 
       setState((prev) => ({
         ...prev,
@@ -113,6 +159,7 @@ export function useYouTubeConnection() {
           viewCount: channel.viewCount,
         },
         error: null,
+        hasProviderToken: true,
       }));
 
       toast({
@@ -140,14 +187,14 @@ export function useYouTubeConnection() {
 
       return false;
     }
-  }, [session, toast]);
+  }, [session, user, toast, checkStoredTokens]);
 
   // Connect YouTube channel via Google OAuth
   const connectYouTube = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await authConnectYouTube();
 
       if (error) {
         throw error;
@@ -155,39 +202,53 @@ export function useYouTubeConnection() {
 
       // OAuth flow initiated - user will be redirected
       // State will be updated when they return
+      toast({
+        title: "Connecting...",
+        description: "You'll be redirected to Google to authorize YouTube access",
+      });
     } catch (error: any) {
       console.error("Connect error:", error);
+      
+      // Check for the specific "Manual linking" error
+      const errorMessage = error.message || "Failed to connect YouTube";
+      const isLinkingError = errorMessage.includes("Manual linking is disabled");
       
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: error.message || "Failed to connect YouTube",
+        error: isLinkingError 
+          ? "Please sign in with Google to connect your YouTube channel." 
+          : errorMessage,
       }));
 
       toast({
         title: "Connection failed",
-        description: error.message || "Failed to connect with Google",
+        description: isLinkingError 
+          ? "Sign in with Google to connect your YouTube channel"
+          : errorMessage,
         variant: "destructive",
       });
     }
-  }, [signInWithGoogle, toast]);
+  }, [authConnectYouTube, toast]);
 
-  // Disconnect YouTube (remove stored data, not Google identity)
+  // Disconnect YouTube (remove stored data and tokens)
   const disconnectYouTube = useCallback(async () => {
     if (!user?.id) return;
 
     setState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      // Delete channel data
-      const { error: channelError } = await supabase
-        .from("channels")
+      // Delete OAuth tokens
+      await supabase
+        .from("youtube_oauth_tokens")
         .delete()
         .eq("user_id", user.id);
 
-      if (channelError) {
-        throw channelError;
-      }
+      // Delete channel data
+      await supabase
+        .from("channels")
+        .delete()
+        .eq("user_id", user.id);
 
       // Delete video data
       await supabase
@@ -244,8 +305,11 @@ export function useYouTubeConnection() {
 
       setState((prev) => ({ ...prev, isLoading: true }));
 
-      // Check for provider token
+      // Check for provider token from current session
       const hasToken = await checkProviderToken();
+      
+      // Check for stored OAuth tokens
+      const storedTokens = await checkStoredTokens();
       
       // Fetch stored channel data
       const storedData = await fetchStoredData();
@@ -259,12 +323,11 @@ export function useYouTubeConnection() {
           isSyncing: false,
           channel: storedData.channel,
           error: null,
-          hasProviderToken: hasToken,
+          hasProviderToken: hasToken || !!storedTokens,
         });
 
-        // If we have a provider token but data might be stale, sync in background
+        // If we have a fresh provider token, sync in background
         if (hasToken && session.provider_token) {
-          // Check if last sync was more than 1 hour ago
           const lastSync = storedData.channel.lastSyncedAt;
           if (lastSync) {
             const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -273,7 +336,7 @@ export function useYouTubeConnection() {
             }
           }
         }
-      } else if (hasToken && session.provider_token) {
+      } else if ((hasToken && session.provider_token) || storedTokens?.access_token) {
         // Have token but no stored data - sync now
         setState((prev) => ({ ...prev, isLoading: false, hasProviderToken: true }));
         syncYouTubeData();
@@ -294,7 +357,7 @@ export function useYouTubeConnection() {
     return () => {
       cancelled = true;
     };
-  }, [user, session, checkProviderToken, fetchStoredData, syncYouTubeData]);
+  }, [user, session, checkProviderToken, checkStoredTokens, fetchStoredData, syncYouTubeData]);
 
   return {
     ...state,
