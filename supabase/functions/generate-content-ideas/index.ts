@@ -104,43 +104,52 @@ ${performanceContext}
 
 ${ANTI_ROBOT_DIRECTIVE}
 
-=== CONTENT IDEA INTELLIGENCE ===
+=== IDEA INTELLIGENCE ENGINE ===
 
-You are a YouTube Content Strategist with predictive intelligence.
+You are ZainIQ Idea Intelligence — a probability-based content strategist.
 
-YOUR ROLE:
-Generate content ideas that are SPECIFICALLY designed for THIS channel.
-Every idea must align with their DNA, avoid their kill zones, and leverage their proven formats.
-Don't suggest generic video ideas - suggest ideas this specific creator should make.
+CORE PHILOSOPHY:
+- Generate ideas based on PROBABILITY, not guesswork
+- Every idea must be REALISTIC and EXECUTABLE for THIS creator
+- Avoid generic content ideas that could apply to any channel
+- Goal: Reduce wasted uploads, increase success probability
 
-IDEA GENERATION FRAMEWORK:
+MANDATORY EVALUATION CRITERIA (For Each Idea):
 
-1. DNA ALIGNMENT CHECK
-   - Does this idea fit the channel's core archetype?
-   - Does it match their tone and complexity level?
+1. TREND ALIGNMENT
+   - Is this topic rising, peaking, declining, or evergreen?
+   - What's the timing window for maximum impact?
+   - Current search/social momentum
+
+2. COMPETITION LEVEL
+   - How saturated is this topic in their niche?
+   - Can this channel realistically compete?
+   - What's the differentiation angle?
+
+3. CHANNEL DNA FIT
+   - Does this match their core archetype?
    - Is it in their format sweet spots?
    - Does it AVOID their kill zones?
+   - Will their existing audience want this?
 
-2. PERFORMANCE SIMULATION
-   - Based on their historical data, how would this perform?
-   - Is this similar to their top performers or bottom performers?
-   - What's the realistic viral potential for THIS channel?
+4. AUDIENCE DEMAND
+   - Is there proven search intent?
+   - Are viewers actively seeking this content?
+   - What's the comment/engagement signal?
 
-3. AUDIENCE PSYCHOLOGY
-   - What would make their specific audience click?
-   - What emotional trigger works for this niche?
-   - How does this serve their viewing intent?
+FOR EACH IDEA, YOU MUST EXPLAIN:
 
-FOR EACH IDEA, PROVIDE:
-- Compelling title (optimized for CTR with their power words)
-- Brief description (2-3 sentences)
-- Viral potential score (0-100, REALISTIC for this channel)
-- Difficulty level (Easy/Medium/Hard based on their typical production)
-- Content type (aligned with their format sweet spots)
-- Key points to cover (3-5 bullets)
-- Thumbnail concept (brief visual description matching their style)
-- Best posting time/day
-- PREDICTION INSIGHT: Why this idea should work for THIS channel
+WHY IT CAN WORK:
+- Specific reasons this idea has success potential for THIS channel
+- What patterns from their top performers does this leverage?
+
+WHAT MAKES IT RISKY OR SAFE:
+- Risk factors: Competition, timing, production difficulty, audience mismatch
+- Safety factors: Proven format, DNA alignment, low competition
+
+ESTIMATED PERFORMANCE DIRECTION:
+- Compared to their average video, will this likely perform: Above Average, Average, or Below Average?
+- Confidence level in this estimate
 
 ${SELF_CRITIQUE_DIRECTIVE}
 
@@ -149,38 +158,46 @@ Return ONLY valid JSON:
   "ideas": [
     {
       "title": "Video Title Here",
-      "description": "Brief description of the video concept",
+      "description": "Brief description (2-3 sentences)",
       "viralScore": 75,
       "difficulty": "Medium",
       "contentType": "Tutorial",
       "keyPoints": ["Point 1", "Point 2", "Point 3"],
       "thumbnailConcept": "Description of thumbnail visual",
       "bestPostingTime": "Tuesday 2-4 PM",
-      "predictionInsight": "This leverages your proven [format] while tapping into [trend]. Based on your DNA, this should outperform average by [X].",
-      "dnaAlignment": "high/medium/low"
+      "probabilityAnalysis": {
+        "trendAlignment": "rising/peaking/declining/evergreen",
+        "competitionLevel": "low/medium/high/saturated",
+        "dnaFit": "strong/moderate/weak",
+        "audienceDemand": "proven/emerging/speculative"
+      },
+      "whyItCanWork": "Specific reasons this should succeed for THIS channel",
+      "riskFactors": ["Risk 1", "Risk 2"],
+      "safetyFactors": ["Safety 1", "Safety 2"],
+      "performanceEstimate": {
+        "direction": "above_average/average/below_average",
+        "confidence": "high/medium/low",
+        "reasoning": "Brief explanation of the estimate"
+      }
     }
   ],
-  "topIdeasWithPredictions": [
+  "topPicks": [
     {
       "ideaIndex": 0,
+      "reason": "Why this is a top pick based on probability analysis",
       "prediction": {
-        "ctrPrediction": "+18-25% above your channel average",
+        "expectedPerformance": "+15-25% above channel average",
         "algorithmLikelihood": "high",
-        "trendAlignment": "rising",
-        "competitionLevel": "medium",
-        "confidenceLevel": "high",
-        "whatIfScenario": {
-          "alternative": "Alternative angle description",
-          "predictedImpact": "Impact description"
-        },
-        "humanSummary": "Natural language summary of why this should work"
+        "bestCaseScenario": "What happens if this works",
+        "worstCaseScenario": "What happens if this underperforms",
+        "humanSummary": "Natural language summary of the opportunity"
       }
     }
   ],
   "trendingTopics": [
-    {"topic": "Topic 1", "relevance": "High", "predictionNote": "Timing insight"}
+    {"topic": "Topic 1", "relevance": "High", "timing": "Act now/This week/This month"}
   ],
-  "strategyInsight": "Overall insight about the content strategy for this batch"
+  "batchInsight": "Overall strategy insight: What makes this batch valuable and how to prioritize"
 }`;
 
     const userPrompt = `Generate ${numberOfIdeas || 10} content ideas for:
@@ -236,27 +253,30 @@ Every idea must feel like something this creator would naturally make.`;
     
     const result = JSON.parse(jsonMatch[0]);
 
-    // Save predictions for top ideas
-    if (result.topIdeasWithPredictions && result.topIdeasWithPredictions.length > 0) {
+    // Save predictions for top picks
+    if (result.topPicks && result.topPicks.length > 0) {
       try {
-        for (const topIdea of result.topIdeasWithPredictions) {
-          const idea = result.ideas[topIdea.ideaIndex];
-          if (idea && topIdea.prediction) {
+        for (const topPick of result.topPicks) {
+          const idea = result.ideas[topPick.ideaIndex];
+          if (idea && topPick.prediction) {
             await serviceSupabase.from('performance_predictions').insert({
               user_id: userId,
               feature_type: 'content_idea',
               content_reference: idea.title,
-              ctr_confidence: topIdea.prediction.confidenceLevel || 'medium',
-              promotion_likelihood: topIdea.prediction.algorithmLikelihood || 'medium',
-              trend_alignment: topIdea.prediction.trendAlignment || 'neutral',
-              competition_saturation: topIdea.prediction.competitionLevel || 'medium',
-              simulations: topIdea.prediction.whatIfScenario ? [topIdea.prediction.whatIfScenario] : [],
-              overall_confidence: topIdea.prediction.confidenceLevel || 'medium',
-              recommendation_summary: topIdea.prediction.humanSummary || '',
+              ctr_confidence: idea.performanceEstimate?.confidence || 'medium',
+              promotion_likelihood: topPick.prediction.algorithmLikelihood || 'medium',
+              trend_alignment: idea.probabilityAnalysis?.trendAlignment || 'neutral',
+              competition_saturation: idea.probabilityAnalysis?.competitionLevel || 'medium',
+              simulations: [{
+                bestCase: topPick.prediction.bestCaseScenario,
+                worstCase: topPick.prediction.worstCaseScenario
+              }],
+              overall_confidence: idea.performanceEstimate?.confidence || 'medium',
+              recommendation_summary: topPick.prediction.humanSummary || topPick.reason || '',
             });
           }
         }
-        console.log('[generate-content-ideas] Saved predictions for top ideas');
+        console.log('[generate-content-ideas] Saved predictions for top picks');
       } catch (e) {
         console.error('[generate-content-ideas] Failed to save predictions:', e);
       }
@@ -265,7 +285,7 @@ Every idea must feel like something this creator would naturally make.`;
     return new Response(JSON.stringify({
       ...result,
       personalizedWithDNA: !!dnaData,
-      hasPredictions: !!(result.topIdeasWithPredictions && result.topIdeasWithPredictions.length > 0),
+      hasPredictions: !!(result.topPicks && result.topPicks.length > 0),
       generatedAt: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
