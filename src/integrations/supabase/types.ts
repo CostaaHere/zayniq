@@ -554,6 +554,48 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_oauth_tokens: {
+        Row: {
+          access_token: string
+          channel_name: string | null
+          channel_thumbnail: string | null
+          created_at: string
+          id: string
+          refresh_token: string | null
+          scopes: string[] | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+          youtube_channel_id: string | null
+        }
+        Insert: {
+          access_token: string
+          channel_name?: string | null
+          channel_thumbnail?: string | null
+          created_at?: string
+          id?: string
+          refresh_token?: string | null
+          scopes?: string[] | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+          youtube_channel_id?: string | null
+        }
+        Update: {
+          access_token?: string
+          channel_name?: string | null
+          channel_thumbnail?: string | null
+          created_at?: string
+          id?: string
+          refresh_token?: string | null
+          scopes?: string[] | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+          youtube_channel_id?: string | null
+        }
+        Relationships: []
+      }
       youtube_videos: {
         Row: {
           category_id: string | null
