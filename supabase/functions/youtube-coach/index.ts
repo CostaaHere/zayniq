@@ -59,6 +59,109 @@ interface CoachRequest {
   coachType: "diagnosis" | "weakPoints" | "nextContent" | "custom";
 }
 
+type GatewayChatCompletion = {
+  choices?: Array<{
+    message?: { content?: unknown };
+    delta?: { content?: unknown };
+    text?: unknown;
+  }>;
+  error?: { message?: string };
+};
+
+function normalizeGatewayContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  // Some providers return an array of parts, e.g. [{type:'text', text:'...'}]
+  if (Array.isArray(content)) {
+    return content
+      .map((p) => {
+        if (typeof p === "string") return p;
+        if (p && typeof p === "object") {
+          const anyP = p as any;
+          return typeof anyP.text === "string" ? anyP.text : "";
+        }
+        return "";
+      })
+      .join("");
+  }
+  if (content && typeof content === "object") {
+    const anyC = content as any;
+    if (typeof anyC.text === "string") return anyC.text;
+  }
+  return "";
+}
+
+function extractAssistantText(aiData: GatewayChatCompletion): string {
+  const c0 = aiData?.choices?.[0];
+  return (
+    normalizeGatewayContent(c0?.message?.content) ||
+    normalizeGatewayContent(c0?.delta?.content) ||
+    normalizeGatewayContent(c0?.text) ||
+    ""
+  );
+}
+
+function sanitizeCoachOutput(raw: string): { clean: string; assessment: any | null } {
+  let assessment: any | null = null;
+  let working = raw;
+
+  // Parse and remove internal assessment
+  try {
+    const internalMatch = working.match(
+      /<!--INTERNAL_ASSESSMENT\s*([\s\S]*?)\s*INTERNAL_ASSESSMENT-->/
+    );
+    if (internalMatch) {
+      const internalData = internalMatch[1];
+      const riskLevel = internalData.match(/riskLevel:\s*(\w+)/)?.[1] || "medium";
+      const strategyType = internalData.match(/strategyType:\s*(\w+)/)?.[1] || "general";
+      const confidenceScore = parseInt(
+        internalData.match(/confidenceScore:\s*(\d+)/)?.[1] || "70"
+      );
+      const bottleneckAddressed = internalData
+        .match(/bottleneckAddressed:\s*(.+)/)?.[1]
+        ?.trim() || null;
+      const potentialUpside = internalData.match(/potentialUpside:\s*(.+)/)?.[1]?.trim() || null;
+      const potentialDownside = internalData
+        .match(/potentialDownside:\s*(.+)/)?.[1]
+        ?.trim() || null;
+
+      assessment = {
+        riskLevel,
+        strategyType,
+        confidenceScore,
+        bottleneckAddressed,
+        potentialUpside,
+        potentialDownside,
+      };
+
+      working = working
+        .replace(/<!--INTERNAL_ASSESSMENT[\s\S]*?INTERNAL_ASSESSMENT-->/g, "")
+        .trim();
+    }
+  } catch (e) {
+    console.error("[youtube-coach] Failed to parse internal assessment:", e);
+  }
+
+  const clean = working
+    .replace(/```json[\s\S]*?```/g, "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/═+/g, "")
+    .trim();
+
+  return { clean, assessment };
+}
+
+function detectFullAnalysisIntent(text: string | undefined): boolean {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return (
+    t.includes("full analysis") ||
+    t.includes("complete result") ||
+    t.includes("pura analysis") ||
+    t.includes("full channel analysis") ||
+    t.includes("complete analysis")
+  );
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -493,26 +596,43 @@ If they're asking for truth, give it straight.`;
     const systemPrompt = buildSupremeCoachPrompt();
     const taskPrompt = getTaskInstructions();
 
+    const isFullAnalysisRequest =
+      coachType === "diagnosis" || detectFullAnalysisIntent(question);
+
+    const userMessage =
+      coachType === "custom"
+        ? (question || "How can I grow my channel?")
+        : isFullAnalysisRequest
+          ? "Full channel analysis"
+          : `Quick action: ${coachType}`;
+
     // Resilient AI call with fallback
     let cleanResponse = "";
     let assessment = null;
     
     try {
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-5",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: taskPrompt }
-          ],
-          max_completion_tokens: 2500,
-        }),
-      });
+      const callAI = async (model: string) => {
+        return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              // Provide the *actual user message* as a separate turn to avoid generic answers.
+              { role: "user", content: userMessage },
+              // Then provide the task scaffold.
+              { role: "user", content: taskPrompt },
+            ],
+            max_completion_tokens: 2500,
+          }),
+        });
+      };
+
+      let aiResponse = await callAI("openai/gpt-5");
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
@@ -535,51 +655,37 @@ If they're asking for truth, give it straight.`;
         throw new Error("AI temporarily unavailable");
       }
 
-      const aiData = await aiResponse.json();
-      let rawResponse = aiData.choices?.[0]?.message?.content || "";
+      let aiData = (await aiResponse.json()) as GatewayChatCompletion;
+      let rawResponse = extractAssistantText(aiData);
+
+      // Retry once with a different model if we get an empty payload.
+      if (!rawResponse || rawResponse.trim().length === 0) {
+        console.warn(
+          "[youtube-coach] Empty AI response from primary model; retrying with fallback model"
+        );
+        aiResponse = await callAI("google/gemini-3-flash-preview");
+        if (aiResponse.ok) {
+          aiData = (await aiResponse.json()) as GatewayChatCompletion;
+          rawResponse = extractAssistantText(aiData);
+        }
+      }
 
       if (!rawResponse || rawResponse.trim().length === 0) {
-        throw new Error("Empty AI response");
+        const errMsg = aiData?.error?.message || "Empty AI response";
+        throw new Error(errMsg);
       }
 
-      // Parse and remove the internal assessment
-      try {
-        const internalMatch = rawResponse.match(/<!--INTERNAL_ASSESSMENT\s*([\s\S]*?)\s*INTERNAL_ASSESSMENT-->/);
-        if (internalMatch) {
-          const internalData = internalMatch[1];
-          const riskLevel = internalData.match(/riskLevel:\s*(\w+)/)?.[1] || "medium";
-          const strategyType = internalData.match(/strategyType:\s*(\w+)/)?.[1] || "general";
-          const confidenceScore = parseInt(internalData.match(/confidenceScore:\s*(\d+)/)?.[1] || "70");
-          const bottleneckAddressed = internalData.match(/bottleneckAddressed:\s*(.+)/)?.[1]?.trim() || null;
-          const potentialUpside = internalData.match(/potentialUpside:\s*(.+)/)?.[1]?.trim() || null;
-          const potentialDownside = internalData.match(/potentialDownside:\s*(.+)/)?.[1]?.trim() || null;
-          
-          assessment = {
-            riskLevel,
-            strategyType,
-            confidenceScore,
-            bottleneckAddressed,
-            potentialUpside,
-            potentialDownside,
-          };
-          
-          rawResponse = rawResponse.replace(/<!--INTERNAL_ASSESSMENT[\s\S]*?INTERNAL_ASSESSMENT-->/g, '').trim();
-        }
-      } catch (e) {
-        console.error("[youtube-coach] Failed to parse internal assessment:", e);
-      }
-
-      // Clean any remaining artifacts
-      cleanResponse = rawResponse
-        .replace(/```json[\s\S]*?```/g, '')
-        .replace(/```[\s\S]*?```/g, '')
-        .replace(/═+/g, '')
-        .trim();
+      const sanitized = sanitizeCoachOutput(rawResponse);
+      cleanResponse = sanitized.clean;
+      assessment = sanitized.assessment;
 
     } catch (aiError) {
       // FAIL-SAFE: Generate helpful fallback response
       console.error("[youtube-coach] AI call failed, using fallback:", aiError);
       
+      const userQ = (question || "").trim();
+      const qForDisplay = userQ.length > 0 ? userQ : getTaskInstructions().includes("Custom") ? "How can I grow my channel?" : "";
+
       const fallbackResponses: Record<string, string> = {
         diagnosis: `Looking at your channel data — you have ${videos.length} videos with an average of ${Math.round(avgViews).toLocaleString()} views per video. Your trend is currently ${trendDirection}.
 
@@ -617,7 +723,25 @@ Your channel is currently ${trendDirection}. Your best content ("${topPerformers
 What specific aspect of your growth do you want to focus on?`,
       };
 
-      cleanResponse = fallbackResponses[coachType] || fallbackResponses.custom;
+      // If we're in custom mode, answer the question directly (avoid the repetitive canned line).
+      if (coachType === "custom") {
+        const top = topPerformers[0]?.title;
+        const bottom = bottomPerformers[0]?.title;
+        cleanResponse = `Verdict: You're not stuck because of "YouTube algorithm mood" — you're stuck because your packaging and topic framing are inconsistent.
+
+Why: Your best performer ("${top}") clearly matches a specific viewer intent, while your weaker uploads (e.g., "${bottom}") likely fail to make a sharp promise fast. When the promise isn't obvious, CTR dies first — and then the video never gets enough tests to discover retention.
+
+Fix (next 48 hours):
+1) Take your last 10 titles and rewrite them into ONE consistent promise style (same vibe as "${top}") — 10 rewrites, no new ideas.
+2) For your next upload, pick ONE core emotion (shock / curiosity / relatable pain) and build the first 3 seconds around it; no intro.
+3) Run a simple A/B: two title options with opposite hooks ("conflict" vs "curiosity") and track which one gets better early click-through.
+
+Power question: What kind of channel are you building — pure entertainment/shorts virality, or long-form authority? (Pick one.)`;
+      } else {
+        cleanResponse = fallbackResponses[coachType] || fallbackResponses.custom;
+      }
+
+
       assessment = { riskLevel: "medium", strategyType: "general", confidenceScore: 60 };
     }
 
