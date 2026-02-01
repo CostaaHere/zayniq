@@ -320,7 +320,7 @@ const Videos = () => {
 
                       <div className="flex gap-2">
                         <Button variant="default" size="sm" className="flex-1" asChild>
-                          <Link to={`/video/${video.id}`}>
+                          <Link to={`/dashboard/videos/${video.id}`}>
                             Analyze
                           </Link>
                         </Button>
@@ -394,7 +394,7 @@ const Videos = () => {
                     {/* Actions */}
                     <div className="flex items-center gap-3">
                       <Button variant="default" size="sm" asChild>
-                        <Link to={`/video/${video.id}`}>
+                        <Link to={`/dashboard/videos/${video.id}`}>
                           Analyze
                         </Link>
                       </Button>
