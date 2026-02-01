@@ -71,7 +71,7 @@ const App = () => (
               }
             />
             <Route
-              path="/dashboard/videos/:id"
+              path="/dashboard/videos/:youtubeVideoId"
               element={
                 <ProtectedRoute>
                   <VideoDetail />
