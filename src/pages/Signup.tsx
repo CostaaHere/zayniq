@@ -88,7 +88,7 @@ const Signup = () => {
       return;
     }
     
-    toast({ title: "Account created!", description: "Welcome to ZaynIQ. You're now signed in." });
+    toast({ title: "Account created!", description: "Welcome to ZainIQ. You're now signed in." });
   };
 
   const handleGoogleSignup = async () => {
@@ -122,7 +122,7 @@ const Signup = () => {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <span className="text-xl font-bold text-primary-foreground">Z</span>
             </div>
-            <span className="text-2xl font-bold gradient-text">ZaynIQ</span>
+            <span className="text-2xl font-bold gradient-text">ZainIQ</span>
           </Link>
 
           <h1 className="text-3xl font-bold mb-2">Create your account</h1>
@@ -332,7 +332,7 @@ const Signup = () => {
             Unlock Your Channel's Full Potential
           </h2>
           <p className="text-lg text-white/80 mb-12">
-            Join 50,000+ creators who are growing faster with ZaynIQ's AI-powered analytics.
+            Join 50,000+ creators who are growing faster with ZainIQ's AI-powered analytics.
           </p>
 
           {/* Dashboard Preview Mockup */}
