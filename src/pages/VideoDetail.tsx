@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import SEOAnalysisPanel from "@/components/video/SEOAnalysisPanel";
+import AVOEAnalysisPanel from "@/components/video/AVOEAnalysisPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,13 +18,13 @@ import {
   ChevronUp,
   Sparkles,
   ExternalLink,
+  Target,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -34,6 +35,8 @@ import {
   Cell,
 } from "recharts";
 import { toast } from "sonner";
+import { analyzeWithAVOE } from "@/services/aiApi";
+import type { AVOEAnalysis } from "@/types/avoe";
 
 // Mock data for demonstration
 const mockVideo = {
@@ -118,9 +121,38 @@ const formatDate = (dateStr: string): string => {
 const VideoDetail = () => {
   const { id } = useParams();
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [avoeAnalysis, setAvoeAnalysis] = useState<AVOEAnalysis | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showAVOE, setShowAVOE] = useState(false);
 
   const handleImproveWithAI = (section: string) => {
     toast.info(`AI improvement for ${section} coming soon!`);
+  };
+
+  const handleAVOEAnalysis = async () => {
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeWithAVOE({
+        title: video.title,
+        description: video.description,
+        tags: video.tags,
+        thumbnailUrl: video.thumbnail,
+        videoLength: video.duration,
+      });
+      setAvoeAnalysis(result);
+      setShowAVOE(true);
+      toast.success("AVOE Analysis complete!");
+    } catch (error) {
+      console.error("AVOE analysis error:", error);
+      toast.error(error instanceof Error ? error.message : "Analysis failed");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleApplyImprovement = (type: 'title' | 'description' | 'tags' | 'hashtags', value: string | string[]) => {
+    toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} improvement applied!`);
+    // In a real app, this would update the video metadata
   };
 
   // In a real app, fetch video by id
@@ -386,22 +418,45 @@ const VideoDetail = () => {
             </div>
           </div>
 
-          {/* Sidebar - SEO Analysis */}
+          {/* Sidebar - SEO Analysis / AVOE Analysis */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24">
-              <SEOAnalysisPanel
-                overallScore={seoData.overallScore}
-                titleScore={seoData.titleScore}
-                titleFeedback={seoData.titleFeedback}
-                descriptionScore={seoData.descriptionScore}
-                descriptionFeedback={seoData.descriptionFeedback}
-                tagsScore={seoData.tagsScore}
-                tagsFeedback={seoData.tagsFeedback}
-                recommendations={seoData.recommendations}
-                onImproveTitle={() => handleImproveWithAI("title")}
-                onImproveDescription={() => handleImproveWithAI("description")}
-                onImproveTags={() => handleImproveWithAI("tags")}
-              />
+            <div className="sticky top-24 space-y-4">
+              {/* AVOE Analysis Button */}
+              <Button
+                onClick={handleAVOEAnalysis}
+                disabled={isAnalyzing}
+                className="w-full gap-2"
+                size="lg"
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Target className="w-4 h-4" />
+                )}
+                {isAnalyzing ? "Analyzing..." : "Analyze with AVOE"}
+              </Button>
+
+              {/* AVOE Analysis Results */}
+              {showAVOE && avoeAnalysis ? (
+                <AVOEAnalysisPanel 
+                  analysis={avoeAnalysis} 
+                  onApplyImprovement={handleApplyImprovement}
+                />
+              ) : (
+                <SEOAnalysisPanel
+                  overallScore={seoData.overallScore}
+                  titleScore={seoData.titleScore}
+                  titleFeedback={seoData.titleFeedback}
+                  descriptionScore={seoData.descriptionScore}
+                  descriptionFeedback={seoData.descriptionFeedback}
+                  tagsScore={seoData.tagsScore}
+                  tagsFeedback={seoData.tagsFeedback}
+                  recommendations={seoData.recommendations}
+                  onImproveTitle={() => handleImproveWithAI("title")}
+                  onImproveDescription={() => handleImproveWithAI("description")}
+                  onImproveTags={() => handleImproveWithAI("tags")}
+                />
+              )}
             </div>
           </div>
         </div>

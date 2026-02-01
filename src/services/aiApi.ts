@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { AVOEAnalysis, AVOEInput } from "@/types/avoe";
 
 // Types for AI service responses
 export interface GeneratedTitle {
@@ -161,7 +162,7 @@ export async function generateKeywords(
 }
 
 /**
- * Analyze SEO and get scores with recommendations
+ * Analyze SEO and get scores with recommendations (legacy)
  */
 export async function analyzeSEO(
   title: string,
@@ -173,6 +174,19 @@ export async function analyzeSEO(
   });
   
   return handleApiResponse<SEOAnalysis>(response);
+}
+
+/**
+ * AVOE (Accurate Video Optimization Engine) - Strict Mode Analysis
+ * Priority: Accuracy over confidence
+ * Uses explicit rubrics with evidence-based scoring
+ */
+export async function analyzeWithAVOE(input: AVOEInput): Promise<AVOEAnalysis> {
+  const response = await supabase.functions.invoke('avoe-analyze', {
+    body: input
+  });
+  
+  return handleApiResponse<AVOEAnalysis>(response);
 }
 
 /**
@@ -207,5 +221,6 @@ export const aiApi = {
   generateTags,
   generateKeywords,
   analyzeSEO,
+  analyzeWithAVOE,
   generateContentIdeas,
 };

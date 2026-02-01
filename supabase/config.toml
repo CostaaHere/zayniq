@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.youtube-coach]
 verify_jwt = false
+
+[functions.avoe-analyze]
+verify_jwt = false
