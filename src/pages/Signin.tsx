@@ -93,7 +93,7 @@ const Signin = () => {
   ];
 
   const testimonial = {
-    quote: "ZaynIQ transformed how I understand my audience. My channel grew 300% in just 6 months!",
+    quote: "ZainIQ transformed how I understand my audience. My channel grew 300% in just 6 months!",
     author: "Alex Chen",
     role: "Tech YouTuber",
     avatar: "AC",
@@ -110,7 +110,7 @@ const Signin = () => {
               <span className="text-xl font-bold text-primary-foreground">Z</span>
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              ZaynIQ
+              ZainIQ
             </span>
           </Link>
 
