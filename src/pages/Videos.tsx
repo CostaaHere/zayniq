@@ -318,15 +318,22 @@ const Videos = () => {
                         </span>
                       </div>
 
-                      <Button variant="outline" size="sm" className="w-full" asChild>
-                        <a 
-                          href={`https://www.youtube.com/watch?v=${video.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          View on YouTube
-                        </a>
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="default" size="sm" className="flex-1" asChild>
+                          <Link to={`/video/${video.id}`}>
+                            Analyze
+                          </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <a 
+                            href={`https://www.youtube.com/watch?v=${video.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Youtube className="w-4 h-4" />
+                          </a>
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -386,13 +393,18 @@ const Videos = () => {
 
                     {/* Actions */}
                     <div className="flex items-center gap-3">
+                      <Button variant="default" size="sm" asChild>
+                        <Link to={`/video/${video.id}`}>
+                          Analyze
+                        </Link>
+                      </Button>
                       <Button variant="outline" size="sm" asChild>
                         <a 
                           href={`https://www.youtube.com/watch?v=${video.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          View
+                          <Youtube className="w-4 h-4" />
                         </a>
                       </Button>
                     </div>
