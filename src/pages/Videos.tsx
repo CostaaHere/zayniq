@@ -329,6 +329,7 @@ const Videos = () => {
                             href={`https://www.youtube.com/watch?v=${video.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
+                            title="View on YouTube"
                           >
                             <Youtube className="w-4 h-4" />
                           </a>
