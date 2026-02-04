@@ -53,6 +53,126 @@ export type Database = {
         }
         Relationships: []
       }
+      analysis_runs: {
+        Row: {
+          competitive_strategy: Json | null
+          completed_at: string | null
+          confidence_factors: Json | null
+          confidence_score: number | null
+          created_at: string
+          data_warnings: Json | null
+          description_breakdown: Json | null
+          error_message: string | null
+          evidence: Json | null
+          format_type: string | null
+          graph_optimization: Json | null
+          hashtags_breakdown: Json | null
+          hook_score: number | null
+          id: string
+          improved_description: string | null
+          improved_hashtags: Json | null
+          improved_tags: Json | null
+          improved_title: string | null
+          input_hash: string | null
+          input_snapshot: Json | null
+          model_version: string | null
+          output: Json | null
+          overall_score: number | null
+          packaging_audit: Json | null
+          priority_actions: Json | null
+          retention_engineering: Json | null
+          retention_score: number | null
+          seo_score: number | null
+          started_at: string | null
+          status: string
+          tags_breakdown: Json | null
+          thumbnail_breakdown: Json | null
+          title_breakdown: Json | null
+          updated_at: string
+          user_id: string
+          virality_breakdown: Json | null
+          youtube_video_id: string
+        }
+        Insert: {
+          competitive_strategy?: Json | null
+          completed_at?: string | null
+          confidence_factors?: Json | null
+          confidence_score?: number | null
+          created_at?: string
+          data_warnings?: Json | null
+          description_breakdown?: Json | null
+          error_message?: string | null
+          evidence?: Json | null
+          format_type?: string | null
+          graph_optimization?: Json | null
+          hashtags_breakdown?: Json | null
+          hook_score?: number | null
+          id?: string
+          improved_description?: string | null
+          improved_hashtags?: Json | null
+          improved_tags?: Json | null
+          improved_title?: string | null
+          input_hash?: string | null
+          input_snapshot?: Json | null
+          model_version?: string | null
+          output?: Json | null
+          overall_score?: number | null
+          packaging_audit?: Json | null
+          priority_actions?: Json | null
+          retention_engineering?: Json | null
+          retention_score?: number | null
+          seo_score?: number | null
+          started_at?: string | null
+          status?: string
+          tags_breakdown?: Json | null
+          thumbnail_breakdown?: Json | null
+          title_breakdown?: Json | null
+          updated_at?: string
+          user_id: string
+          virality_breakdown?: Json | null
+          youtube_video_id: string
+        }
+        Update: {
+          competitive_strategy?: Json | null
+          completed_at?: string | null
+          confidence_factors?: Json | null
+          confidence_score?: number | null
+          created_at?: string
+          data_warnings?: Json | null
+          description_breakdown?: Json | null
+          error_message?: string | null
+          evidence?: Json | null
+          format_type?: string | null
+          graph_optimization?: Json | null
+          hashtags_breakdown?: Json | null
+          hook_score?: number | null
+          id?: string
+          improved_description?: string | null
+          improved_hashtags?: Json | null
+          improved_tags?: Json | null
+          improved_title?: string | null
+          input_hash?: string | null
+          input_snapshot?: Json | null
+          model_version?: string | null
+          output?: Json | null
+          overall_score?: number | null
+          packaging_audit?: Json | null
+          priority_actions?: Json | null
+          retention_engineering?: Json | null
+          retention_score?: number | null
+          seo_score?: number | null
+          started_at?: string | null
+          status?: string
+          tags_breakdown?: Json | null
+          thumbnail_breakdown?: Json | null
+          title_breakdown?: Json | null
+          updated_at?: string
+          user_id?: string
+          virality_breakdown?: Json | null
+          youtube_video_id?: string
+        }
+        Relationships: []
+      }
       channel_bottlenecks: {
         Row: {
           bottleneck_type: string
