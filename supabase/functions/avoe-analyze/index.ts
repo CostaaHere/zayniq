@@ -8,14 +8,16 @@ const corsHeaders = {
 };
 
 // ============================================================
-// AVOE (Accurate Video Optimization Engine) - STRICT MODE
+// AVOE (Accurate Video Optimization Engine) - STRICT MODE v2
 // ============================================================
 // Priority: ACCURACY over confidence
 // Never invent data, never output dummy scores
 // All scores use explicit rubrics with evidence
+// NEW: Creates separate analysis_runs, includes evidence, input snapshots
 // ============================================================
 
 interface VideoInput {
+  youtubeVideoId: string;
   title: string;
   description?: string;
   tags?: string[];
@@ -28,6 +30,11 @@ interface VideoInput {
   region?: string;
   audienceType?: string;
   videoLength?: string;
+  durationSeconds?: number;
+  viewCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  publishedAt?: string;
   // Performance metrics (optional)
   impressions?: number;
   ctr?: number;
@@ -38,6 +45,10 @@ interface VideoInput {
   competitorTitles?: string[];
   competitorTags?: string[][];
   searchQuery?: string;
+  // Top comments (optional)
+  topComments?: { text: string; likeCount: number }[];
+  // Channel baseline (optional)
+  channelAvgViews?: number;
 }
 
 interface ScoreBreakdown {
@@ -45,6 +56,21 @@ interface ScoreBreakdown {
   breakdown: { criterion: string; score: number; maxScore: number; evidence: string }[];
   issues: string[];
   suggestions: string[];
+}
+
+interface Evidence {
+  titleKeywords: string[];
+  transcriptExcerpt?: string;
+  hookExcerpt?: string;
+  topCommentThemes?: string[];
+  detectedPatternInterrupts?: string[];
+  wordFrequency?: Record<string, number>;
+  inputsAvailable: {
+    metadata: boolean;
+    transcript: boolean;
+    comments: boolean;
+    channelBaseline: boolean;
+  };
 }
 
 interface AVOEAnalysis {
@@ -61,6 +87,9 @@ interface AVOEAnalysis {
   confidenceScore: number;
   confidenceFactors: string[];
   dataWarnings: string[];
+  
+  // Evidence
+  evidence: Evidence;
   
   // A) Metadata & Packaging Audit
   packagingAudit: {
@@ -95,21 +124,125 @@ interface AVOEAnalysis {
     battleTitles: string[];
   };
   
-  // Ready-to-paste improvements
+  // Ready-to-paste improvements (with variants)
   improvedTitle: string;
+  titleVariants: { style: string; title: string }[];
   improvedDescription: string;
   improvedTags: string[];
   improvedHashtags: string[];
+  hookScripts: string[];
+  pinnedCommentSuggestion: string;
   
   // Top priority actions
   priorityActions: { priority: 'high' | 'medium' | 'low'; action: string; impact: string }[];
 }
 
 // ============================================================
+// UTILITY FUNCTIONS
+// ============================================================
+
+function createInputHash(input: VideoInput): string {
+  const hashSource = JSON.stringify({
+    title: input.title,
+    description: input.description,
+    tags: input.tags,
+    transcript: input.transcript?.slice(0, 500),
+    viewCount: input.viewCount,
+  });
+  // Simple hash for change detection
+  let hash = 0;
+  for (let i = 0; i < hashSource.length; i++) {
+    const char = hashSource.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString(16);
+}
+
+function extractKeywordsFromTitle(title: string): string[] {
+  const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'just', 'don', 'now', 'i', 'me', 'my', 'myself', 'we', 'our', 'you', 'your', 'he', 'him', 'his', 'she', 'her', 'it', 'its', 'they', 'them', 'their', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am']);
+  
+  return title.toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !stopWords.has(word));
+}
+
+function extractHookFromTranscript(transcript: string | undefined): string | undefined {
+  if (!transcript) return undefined;
+  
+  // Get first ~100 words (approximately first 10-15 seconds of speech)
+  const words = transcript.split(/\s+/).slice(0, 100);
+  return words.join(' ');
+}
+
+function analyzeWordFrequency(text: string): Record<string, number> {
+  const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'this', 'that', 'be', 'have', 'do', 'so', 'if', 'my', 'your', 'its', 'our', 'what', 'which', 'who', 'how', 'when', 'where', 'why']);
+  
+  const words = text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+  const freq: Record<string, number> = {};
+  
+  for (const word of words) {
+    if (word.length > 3 && !stopWords.has(word)) {
+      freq[word] = (freq[word] || 0) + 1;
+    }
+  }
+  
+  // Return top 10 most frequent
+  return Object.fromEntries(
+    Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+  );
+}
+
+function detectPatternInterrupts(transcript: string | undefined): string[] {
+  if (!transcript) return [];
+  
+  const patterns = [
+    { regex: /but wait/gi, name: '"But wait"' },
+    { regex: /here'?s the thing/gi, name: '"Here\'s the thing"' },
+    { regex: /now this is where/gi, name: '"Now this is where"' },
+    { regex: /you won'?t believe/gi, name: '"You won\'t believe"' },
+    { regex: /watch (till|until) the end/gi, name: '"Watch till the end"' },
+    { regex: /stay with me/gi, name: '"Stay with me"' },
+    { regex: /let me show you/gi, name: '"Let me show you"' },
+    { regex: /and that'?s when/gi, name: '"And that\'s when"' },
+    { regex: /the secret is/gi, name: '"The secret is"' },
+    { regex: /plot twist/gi, name: '"Plot twist"' },
+  ];
+  
+  const detected: string[] = [];
+  for (const p of patterns) {
+    if (p.regex.test(transcript)) {
+      detected.push(p.name);
+    }
+  }
+  
+  return detected;
+}
+
+function extractCommentThemes(comments: { text: string; likeCount: number }[] | undefined): string[] {
+  if (!comments || comments.length === 0) return [];
+  
+  const themes: string[] = [];
+  const allText = comments.map(c => c.text).join(' ').toLowerCase();
+  
+  if (/love|amazing|great|awesome|best/i.test(allText)) themes.push('Positive sentiment');
+  if (/help|thank|useful|learned/i.test(allText)) themes.push('Educational value');
+  if (/more|next|when|part 2/i.test(allText)) themes.push('Demand for more content');
+  if (/question|how do|what about/i.test(allText)) themes.push('Audience questions');
+  if (/subscribe|follow|notification/i.test(allText)) themes.push('Engagement signals');
+  if (/disagree|wrong|but|however/i.test(allText)) themes.push('Discussion/debate');
+  
+  return themes;
+}
+
+// ============================================================
 // RUBRIC SCORING FUNCTIONS
 // ============================================================
 
-function scoreTitleRubric(title: string, tags: string[], hasCompetitorData: boolean): ScoreBreakdown {
+function scoreTitleRubric(title: string, tags: string[], hasCompetitorData: boolean, titleKeywords: string[]): ScoreBreakdown {
   const breakdown: ScoreBreakdown["breakdown"] = [];
   const issues: string[] = [];
   const suggestions: string[] = [];
@@ -128,7 +261,7 @@ function scoreTitleRubric(title: string, tags: string[], hasCompetitorData: bool
     criterion: "CTR Psychology (curiosity + stakes + clarity)",
     score: ctrScore,
     maxScore: 30,
-    evidence: `Curiosity gap: ${hasCuriosityGap ? 'Yes' : 'No'}, Stakes: ${hasStakes ? 'Yes' : 'No'}, Clear: ${hasClarity ? 'Yes' : 'No'}`
+    evidence: `Detected keywords: [${titleKeywords.slice(0, 5).join(', ')}]. Curiosity gap: ${hasCuriosityGap ? 'Yes' : 'No'}, Stakes: ${hasStakes ? 'Yes' : 'No'}, Clear: ${hasClarity ? 'Yes' : 'No'}`
   });
   
   if (!hasCuriosityGap) issues.push("Missing curiosity gap - no question or intrigue element");
@@ -149,13 +282,13 @@ function scoreTitleRubric(title: string, tags: string[], hasCompetitorData: bool
     criterion: "Search Intent Match (query alignment + natural phrasing)",
     score: searchScore,
     maxScore: 25,
-    evidence: `${keywordsInTitle.length} keywords matched, Natural phrasing: ${hasNaturalPhrasing ? 'Yes' : 'No'}`
+    evidence: `${keywordsInTitle.length} tag keywords matched in title: [${keywordsInTitle.slice(0, 3).join(', ')}]. Natural phrasing: ${hasNaturalPhrasing ? 'Yes' : 'No'}`
   });
   
   if (keywordsInTitle.length === 0) issues.push("No target keywords found in title");
   
-  // 3. Uniqueness (20 points) - REDUCED CONFIDENCE if no competitor data
-  let uniqueScore = hasCompetitorData ? 10 : 5; // Base reduced without competitor data
+  // 3. Uniqueness (20 points)
+  let uniqueScore = hasCompetitorData ? 10 : 5;
   const hasUniqueAngle = /only|first|new|different|unlike|vs|versus/i.test(title);
   if (hasUniqueAngle) uniqueScore += 10;
   
@@ -175,7 +308,7 @@ function scoreTitleRubric(title: string, tags: string[], hasCompetitorData: bool
   // 4. Specificity (15 points)
   let specificityScore = 0;
   const hasNumbers = /\d+/.test(title);
-  const hasTimeframe = /2024|2025|today|now|this week|this month/i.test(title);
+  const hasTimeframe = /2024|2025|2026|today|now|this week|this month/i.test(title);
   const hasOutcome = /result|grow|increase|boost|get|earn|make|build/i.test(title);
   
   if (hasNumbers) specificityScore += 5;
@@ -242,7 +375,7 @@ function scoreDescriptionRubric(description: string, tags: string[]): ScoreBreak
     criterion: "First 2 Lines Hook + Keyword Placement",
     score: hookScore,
     maxScore: 30,
-    evidence: `Hook present: ${hasHook ? 'Yes' : 'No'}, Keywords in first 150 chars: ${keywordsInFirst150.length}`
+    evidence: `First 150 chars: "${first150.slice(0, 80)}...". Hook present: ${hasHook ? 'Yes' : 'No'}, Keywords found: ${keywordsInFirst150.length}`
   });
   
   if (!hasHook) issues.push("First 150 characters lack a compelling hook");
@@ -353,7 +486,7 @@ function scoreTagsRubric(tags: string[], title: string): ScoreBreakdown {
     criterion: "Long-tail Precision (problem-aware queries)",
     score: Math.min(35, longTailScore),
     maxScore: 35,
-    evidence: `${longTailTags.length} long-tail tags (3+ words), ${problemAwareTags.length} problem-aware tags`
+    evidence: `${longTailTags.length} long-tail tags (3+ words): [${longTailTags.slice(0, 3).join(', ')}...]. ${problemAwareTags.length} problem-aware tags.`
   });
   
   if (longTailTags.length < 3) suggestions.push("Add more long-tail tags (3+ words) targeting specific search queries");
@@ -442,7 +575,7 @@ function scoreHashtagsRubric(hashtags: string[]): ScoreBreakdown {
   
   if (!hashtags || hashtags.length === 0) {
     return {
-      total: 50, // Neutral - hashtags are optional
+      total: 50,
       breakdown: [{ criterion: "Hashtags", score: 50, maxScore: 100, evidence: "No hashtags provided (optional element)" }],
       issues: [],
       suggestions: ["Consider adding 3-5 relevant hashtags for additional discoverability"]
@@ -450,7 +583,7 @@ function scoreHashtagsRubric(hashtags: string[]): ScoreBreakdown {
   }
   
   // 1. Relevance (40 points)
-  let relevanceScore = 30; // Base assumption
+  let relevanceScore = 30;
   const spammy = hashtags.filter(h => /viral|fyp|foryou|trending/i.test(h));
   if (spammy.length > 0) relevanceScore -= spammy.length * 10;
   
@@ -458,7 +591,7 @@ function scoreHashtagsRubric(hashtags: string[]): ScoreBreakdown {
     criterion: "Relevance + Intent Match",
     score: Math.max(0, relevanceScore),
     maxScore: 40,
-    evidence: spammy.length > 0 ? `${spammy.length} potentially spammy hashtags detected` : "No spam indicators"
+    evidence: spammy.length > 0 ? `${spammy.length} potentially spammy hashtags detected: [${spammy.join(', ')}]` : "No spam indicators"
   });
   
   if (spammy.length > 0) issues.push(`Spammy hashtags detected: ${spammy.join(', ')}`);
@@ -473,7 +606,7 @@ function scoreHashtagsRubric(hashtags: string[]): ScoreBreakdown {
     criterion: "Non-spam (3–8 max, not redundant)",
     score: nonSpamScore,
     maxScore: 25,
-    evidence: `${hashtags.length} hashtags (optimal: 3-8)`
+    evidence: `${hashtags.length} hashtags provided (optimal: 3-8)`
   });
   
   if (hashtags.length > 8) issues.push("Too many hashtags - YouTube may flag as spam");
@@ -491,12 +624,12 @@ function scoreHashtagsRubric(hashtags: string[]): ScoreBreakdown {
   });
   
   // 4. Uniqueness (15 points)
-  let uniqueScore = 12;
-  const overused = hashtags.filter(h => /youtube|video|subscribe|like/i.test(h));
-  if (overused.length > 0) uniqueScore = 5;
+  const overused = hashtags.filter(h => /shorts|youtube|viral|trending|fyp/i.test(h));
+  let uniqueScore = 15 - (overused.length * 3);
+  uniqueScore = Math.max(0, uniqueScore);
   
   breakdown.push({
-    criterion: "Uniqueness vs Overused Hashtags",
+    criterion: "Uniqueness (avoiding #shorts #viral)",
     score: uniqueScore,
     maxScore: 15,
     evidence: overused.length > 0 ? `Overused hashtags: ${overused.join(', ')}` : "Good hashtag uniqueness"
@@ -564,6 +697,91 @@ function scoreThumbnailRubric(thumbnailUrl: string | undefined, title: string): 
   return { total, breakdown, issues, suggestions };
 }
 
+function scoreHookRubric(transcript: string | undefined, hookExcerpt: string | undefined, isShort: boolean): ScoreBreakdown {
+  const breakdown: ScoreBreakdown["breakdown"] = [];
+  const issues: string[] = [];
+  const suggestions: string[] = [];
+  
+  if (!transcript && !hookExcerpt) {
+    return {
+      total: 30, // Reduced confidence
+      breakdown: [{ criterion: "Hook Analysis", score: 30, maxScore: 100, evidence: "Transcript not available - hook confidence reduced" }],
+      issues: ["No transcript provided - cannot analyze opening hook"],
+      suggestions: ["Provide transcript for accurate hook and retention analysis"]
+    };
+  }
+  
+  const hook = hookExcerpt || '';
+  
+  // 1. Immediate Promise (35 points for shorts, 25 for long)
+  let promiseScore = 0;
+  const hasPromise = /you|learn|discover|show|reveal|tell|secret|why|how|what/i.test(hook);
+  const hasUrgency = /now|today|immediately|right now|first|before/i.test(hook);
+  
+  if (hasPromise) promiseScore += isShort ? 20 : 15;
+  if (hasUrgency) promiseScore += isShort ? 15 : 10;
+  
+  breakdown.push({
+    criterion: "Immediate Promise (0-3 sec)",
+    score: promiseScore,
+    maxScore: isShort ? 35 : 25,
+    evidence: `Hook excerpt: "${hook.slice(0, 100)}...". Promise: ${hasPromise ? 'Yes' : 'No'}, Urgency: ${hasUrgency ? 'Yes' : 'No'}`
+  });
+  
+  // 2. Pattern Interrupt (25 points)
+  let interruptScore = 0;
+  const hasQuestion = /\?/.test(hook);
+  const hasCommand = /stop|wait|listen|look|don't|never/i.test(hook);
+  const hasContrarian = /but|however|actually|wrong|mistake/i.test(hook);
+  
+  if (hasQuestion) interruptScore += 10;
+  if (hasCommand) interruptScore += 10;
+  if (hasContrarian) interruptScore += 5;
+  
+  breakdown.push({
+    criterion: "Pattern Interrupt (attention grab)",
+    score: interruptScore,
+    maxScore: 25,
+    evidence: `Question: ${hasQuestion ? 'Yes' : 'No'}, Command: ${hasCommand ? 'Yes' : 'No'}, Contrarian: ${hasContrarian ? 'Yes' : 'No'}`
+  });
+  
+  // 3. Curiosity Loop (20 points)
+  let curiosityScore = 0;
+  const hasLoop = /until|but first|before|end|result|happened/i.test(hook);
+  if (hasLoop) curiosityScore = 20;
+  else curiosityScore = 8;
+  
+  breakdown.push({
+    criterion: "Curiosity Loop (open loop creation)",
+    score: curiosityScore,
+    maxScore: 20,
+    evidence: hasLoop ? "Open loop detected in hook" : "No clear open loop in hook"
+  });
+  
+  // 4. Pacing (20 points)
+  let pacingScore = 0;
+  const wordCount = hook.split(/\s+/).length;
+  const wordsPerSecond = wordCount / 10; // Assuming ~10 seconds of hook
+  
+  if (wordsPerSecond >= 2 && wordsPerSecond <= 3.5) pacingScore = 20; // Good pace
+  else if (wordsPerSecond > 3.5) pacingScore = 12; // Too fast
+  else pacingScore = 10; // Too slow
+  
+  breakdown.push({
+    criterion: "Pacing (energy level)",
+    score: pacingScore,
+    maxScore: 20,
+    evidence: `~${wordsPerSecond.toFixed(1)} words/second in hook (optimal: 2-3.5 for ${isShort ? 'shorts' : 'long-form'})`
+  });
+  
+  if (!hasPromise) issues.push("Hook lacks a clear promise or value proposition");
+  if (!hasQuestion && !hasCommand) suggestions.push("Add a question or command in first 3 seconds to grab attention");
+  
+  const total = breakdown.reduce((sum, b) => sum + b.score, 0);
+  
+  return { total, breakdown, issues, suggestions };
+}
+
 function scoreViralityRubric(
   titleScore: number, 
   thumbnailScore: number,
@@ -623,7 +841,7 @@ function scoreViralityRubric(
   return { total, breakdown, issues, suggestions };
 }
 
-function calculateConfidence(input: VideoInput): { score: number; factors: string[] } {
+function calculateConfidence(input: VideoInput, evidence: Evidence): { score: number; factors: string[] } {
   let score = 0;
   const factors: string[] = [];
   
@@ -631,7 +849,7 @@ function calculateConfidence(input: VideoInput): { score: number; factors: strin
     score += 30;
     factors.push("+30: Transcript provided");
   } else {
-    factors.push("+0: No transcript (topic extraction less accurate)");
+    factors.push("+0: No transcript (hook/retention analysis less accurate)");
   }
   
   if (input.competitorTitles && input.competitorTitles.length > 0) {
@@ -641,9 +859,16 @@ function calculateConfidence(input: VideoInput): { score: number; factors: strin
     factors.push("+0: No competitor data (uniqueness scoring limited)");
   }
   
-  if (input.impressions !== undefined && input.ctr !== undefined) {
-    score += 20;
-    factors.push("+20: Performance metrics provided");
+  if (input.topComments && input.topComments.length > 0) {
+    score += 10;
+    factors.push("+10: Top comments provided for sentiment analysis");
+  } else {
+    factors.push("+0: No comments data");
+  }
+  
+  if (input.viewCount !== undefined && input.likeCount !== undefined) {
+    score += 15;
+    factors.push("+15: Performance metrics provided");
   } else {
     factors.push("+0: No performance metrics");
   }
@@ -655,18 +880,16 @@ function calculateConfidence(input: VideoInput): { score: number; factors: strin
     factors.push("+0: No thumbnail for analysis");
   }
   
-  if (input.language && input.region && input.audienceType) {
-    score += 10;
-    factors.push("+10: Language/region/audience provided");
-  } else {
-    factors.push("+0: Missing language/region/audience context");
+  if (input.durationSeconds !== undefined) {
+    score += 5;
+    factors.push("+5: Video duration provided");
   }
   
-  if (input.videoLength) {
+  if (input.channelAvgViews !== undefined) {
     score += 10;
-    factors.push("+10: Video length provided");
+    factors.push("+10: Channel baseline provided (outlier detection enabled)");
   } else {
-    factors.push("+0: No video length");
+    factors.push("+0: No channel baseline");
   }
   
   return { score, factors };
@@ -706,26 +929,59 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('[AVOE] Starting analysis for:', input.title);
+    console.log('[AVOE v2] Starting analysis for:', input.youtubeVideoId, '-', input.title);
 
-    // Calculate confidence first
-    const confidence = calculateConfidence(input);
+    // Determine if short
+    const isShort = (input.durationSeconds !== undefined && input.durationSeconds <= 60) || 
+                    (input.videoLength && /PT\d+S/.test(input.videoLength) && parseInt(input.videoLength.replace(/\D/g, '')) <= 60);
+
+    // Extract evidence
+    const titleKeywords = extractKeywordsFromTitle(input.title);
+    const hookExcerpt = extractHookFromTranscript(input.transcript);
+    const wordFrequency = input.transcript ? analyzeWordFrequency(input.transcript) : undefined;
+    const detectedPatternInterrupts = detectPatternInterrupts(input.transcript);
+    const topCommentThemes = extractCommentThemes(input.topComments);
+
+    const evidence: Evidence = {
+      titleKeywords,
+      transcriptExcerpt: input.transcript?.slice(0, 500),
+      hookExcerpt,
+      topCommentThemes,
+      detectedPatternInterrupts,
+      wordFrequency,
+      inputsAvailable: {
+        metadata: true,
+        transcript: !!input.transcript,
+        comments: !!(input.topComments && input.topComments.length > 0),
+        channelBaseline: input.channelAvgViews !== undefined,
+      },
+    };
+
+    // Create input hash for change detection
+    const inputHash = createInputHash(input);
     
     // Build data warnings
     const dataWarnings: string[] = [];
     if (!input.transcript) {
-      dataWarnings.push("Topic/keyword extraction may be less accurate without transcript.");
+      dataWarnings.push("Transcript not available - hook/retention confidence reduced. Consider adding captions.");
     }
     if (!input.competitorTitles || input.competitorTitles.length === 0) {
-      dataWarnings.push("Competitive YouTube-wide analysis is limited because competitor SERP data was not provided.");
+      dataWarnings.push("No competitor SERP data - uniqueness analysis is model-estimated.");
+    }
+    if (!input.topComments || input.topComments.length === 0) {
+      dataWarnings.push("No comment data - audience sentiment not analyzed.");
     }
 
+    // Calculate confidence
+    const confidence = calculateConfidence(input, evidence);
+
     // Compute rubric-based scores
-    const titleScore = scoreTitleRubric(input.title, input.tags || [], !!input.competitorTitles?.length);
+    const titleScore = scoreTitleRubric(input.title, input.tags || [], !!input.competitorTitles?.length, titleKeywords);
     const descriptionScore = scoreDescriptionRubric(input.description || '', input.tags || []);
     const tagsScore = scoreTagsRubric(input.tags || [], input.title);
     const hashtagsScore = scoreHashtagsRubric(input.hashtags || []);
     const thumbnailScore = scoreThumbnailRubric(input.thumbnailUrl, input.title);
+    const hookScore = scoreHookRubric(input.transcript, hookExcerpt, !!isShort);
     const viralityScore = scoreViralityRubric(
       titleScore.total,
       thumbnailScore.total,
@@ -736,63 +992,95 @@ serve(async (req) => {
     // Calculate overall score (weighted)
     const overallScore = Math.round(
       titleScore.total * 0.25 +
-      descriptionScore.total * 0.20 +
-      tagsScore.total * 0.15 +
+      descriptionScore.total * 0.15 +
+      tagsScore.total * 0.10 +
       thumbnailScore.total * 0.20 +
-      viralityScore.total * 0.20
+      hookScore.total * 0.15 +
+      viralityScore.total * 0.15
     );
 
-    // Now use AI to generate improvements and deep analysis
-    const systemPrompt = `You are AVOE (Accurate Video Optimization Engine) - a strict, intelligence-driven YouTube optimization system.
+    // Build context for AI with real video data
+    const videoContext = `
+VIDEO ANALYSIS CONTEXT (REAL DATA):
+- YouTube Video ID: ${input.youtubeVideoId}
+- Title: "${input.title}"
+- Duration: ${input.durationSeconds ? `${input.durationSeconds}s (${isShort ? 'SHORT' : 'LONG'})` : 'Unknown'}
+- Views: ${input.viewCount?.toLocaleString() || 'N/A'}
+- Likes: ${input.likeCount?.toLocaleString() || 'N/A'}
+- Comments: ${input.commentCount?.toLocaleString() || 'N/A'}
+${input.channelAvgViews ? `- Channel Avg Views: ${input.channelAvgViews.toLocaleString()} (${input.viewCount && input.viewCount > input.channelAvgViews * 1.5 ? 'OUTPERFORMER' : 'TYPICAL'})` : ''}
 
-CRITICAL RULES:
-1. NEVER invent data or output dummy suggestions
-2. All recommendations must be based on the provided inputs only
-3. Be specific - reference the actual title, description, and tags provided
-4. Priority is ACCURACY over confidence
-
-INPUT DATA:
-- Title: ${input.title}
-- Description: ${input.description || 'Not provided'}
-- Tags: ${input.tags?.join(', ') || 'None'}
-- Hashtags: ${input.hashtags?.join(', ') || 'None'}
-- Transcript: ${input.transcript ? 'Provided' : 'Not provided'}
-- Video Length: ${input.videoLength || 'Unknown'}
-- Category: ${input.category || 'Unknown'}
+DETECTED KEYWORDS FROM TITLE: [${titleKeywords.join(', ')}]
+${wordFrequency ? `MOST FREQUENT WORDS IN TRANSCRIPT: [${Object.entries(wordFrequency).slice(0, 5).map(([w, c]) => `${w}(${c})`).join(', ')}]` : ''}
+${hookExcerpt ? `HOOK EXCERPT (first 10 sec): "${hookExcerpt.slice(0, 200)}..."` : 'TRANSCRIPT NOT AVAILABLE'}
+${detectedPatternInterrupts.length > 0 ? `DETECTED PATTERN INTERRUPTS: [${detectedPatternInterrupts.join(', ')}]` : ''}
+${topCommentThemes.length > 0 ? `TOP COMMENT THEMES: [${topCommentThemes.join(', ')}]` : ''}
 
 RUBRIC SCORES (already computed):
-- Title: ${titleScore.total}/100
+- Title: ${titleScore.total}/100 (Issues: ${titleScore.issues.join('; ') || 'None'})
 - Description: ${descriptionScore.total}/100
 - Tags: ${tagsScore.total}/100
-- Virality Readiness: ${viralityScore.total}/100
+- Hook: ${hookScore.total}/100
+- Virality: ${viralityScore.total}/100
+- Overall: ${overallScore}/100
+- Confidence: ${confidence.score}/100
 
-Generate a JSON response with these improvements and analysis:
+CONFIDENCE NOTE: ${!input.transcript ? 'No transcript = reduced hook/retention accuracy.' : 'Transcript available for full analysis.'}
+`;
+
+    // Now use AI to generate improvements
+    const systemPrompt = `You are AVOE v2 (Accurate Video Optimization Engine) - a strict, evidence-based YouTube optimization system.
+
+CRITICAL RULES:
+1. NEVER invent data or output generic suggestions
+2. All recommendations must reference the ACTUAL title, keywords, and content provided
+3. Be specific - use the detected keywords and hook excerpt in your suggestions
+4. If transcript is missing, clearly state that hook/retention suggestions are estimated
+5. Generate VARIED outputs - 5 title variants in 3 styles, 3 different hook scripts
+6. Priority is ACCURACY over confidence
+
+${videoContext}
+
+Generate a JSON response with video-specific improvements:
 {
-  "improvedTitle": "An improved title that addresses the rubric weaknesses",
-  "improvedDescription": "First 150 characters of an improved description with hook and keyword",
-  "improvedTags": ["array", "of", "improved", "tags"],
-  "improvedHashtags": ["#improved", "#hashtags"],
+  "improvedTitle": "An improved title using detected keywords: [${titleKeywords.slice(0, 3).join(', ')}]",
+  "titleVariants": [
+    {"style": "Aggressive", "title": "Title variant 1"},
+    {"style": "Aggressive", "title": "Title variant 2"},
+    {"style": "Curiosity", "title": "Title variant 3"},
+    {"style": "Curiosity", "title": "Title variant 4"},
+    {"style": "Specific/Data", "title": "Title variant 5"}
+  ],
+  "improvedDescription": "First 150 characters with hook and keyword placement",
+  "improvedTags": ["tag1", "tag2", "tag3"],
+  "improvedHashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],
+  "hookScripts": [
+    "Hook script 1 (0-10 sec) specific to this video topic",
+    "Hook script 2 (alternative approach)",
+    "Hook script 3 (contrarian angle)"
+  ],
+  "pinnedCommentSuggestion": "A pinned comment to boost engagement for this specific video",
   "packagingAudit": {
-    "titleAnalysis": "Brief analysis of current title strengths/weaknesses",
-    "descriptionAnalysis": "Brief analysis of description",
-    "tagsAnalysis": "Brief analysis of tag strategy",
+    "titleAnalysis": "Analysis of '${input.title.slice(0, 50)}...' - what works and what doesn't",
+    "descriptionAnalysis": "Brief analysis referencing actual description content",
+    "tagsAnalysis": "Analysis of the ${(input.tags?.length || 0)} tags provided",
     "hashtagsAnalysis": "Brief hashtag assessment",
-    "thumbnailAnalysis": "Thumbnail guidance based on title",
-    "topicPositioning": "What sub-niche and unique promise",
+    "thumbnailAnalysis": "Thumbnail guidance based on title keywords: [${titleKeywords.slice(0, 3).join(', ')}]",
+    "topicPositioning": "What sub-niche and unique promise for this specific topic",
     "brandAlignment": "How consistent with typical creator expectations",
     "promisePayoff": "Assessment of title promise vs likely content"
   },
   "graphOptimization": {
-    "adjacentTopics": ["Related video topics that should recommend this"],
+    "adjacentTopics": ["Topics related to ${titleKeywords[0] || 'this video'}"],
     "bridgeKeywords": ["Keywords to connect to adjacent topics"],
-    "watchNextFunnel": ["Suggestions for end screens and description paths"]
+    "watchNextFunnel": ["Suggestions for end screens based on topic"]
   },
   "retentionEngineering": {
-    "openingHookRewrite": "Word-for-word 0-20 second hook script",
-    "retentionInterrupts": ["3 pattern interrupts for this video style"]
+    "openingHookRewrite": "Word-for-word 0-${isShort ? '3' : '20'} second hook script for this ${isShort ? 'short' : 'long-form'} video",
+    "retentionInterrupts": ["Pattern interrupt 1 for ${titleKeywords[0] || 'this'} content", "Pattern interrupt 2", "Pattern interrupt 3"]
   },
   "priorityActions": [
-    {"priority": "high", "action": "Specific action", "impact": "Expected impact"}
+    {"priority": "high", "action": "Specific action for this video", "impact": "Expected impact based on scores"}
   ]
 }`;
 
@@ -803,10 +1091,10 @@ Generate a JSON response with these improvements and analysis:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: 'openai/gpt-5',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate the AVOE analysis and improvements based on the input data.' }
+          { role: 'user', content: `Generate video-specific AVOE analysis for YouTube video ${input.youtubeVideoId}: "${input.title}". Include title variants, hook scripts, and a pinned comment suggestion.` }
         ],
       }),
     });
@@ -837,6 +1125,7 @@ Generate a JSON response with these improvements and analysis:
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       aiAnalysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
     } catch {
+      console.error('[AVOE] Failed to parse AI response');
       aiAnalysis = {};
     }
 
@@ -851,31 +1140,41 @@ Generate a JSON response with these improvements and analysis:
       confidenceScore: confidence.score,
       confidenceFactors: confidence.factors,
       dataWarnings,
+      evidence,
       packagingAudit: aiAnalysis.packagingAudit || {
-        titleAnalysis: "Analysis requires AI response",
-        descriptionAnalysis: "Analysis requires AI response",
-        tagsAnalysis: "Analysis requires AI response",
-        hashtagsAnalysis: "Analysis requires AI response",
-        thumbnailAnalysis: "Analysis requires AI response",
-        topicPositioning: "Analysis requires AI response",
-        brandAlignment: "Analysis requires AI response",
-        promisePayoff: "Analysis requires AI response"
+        titleAnalysis: `Title "${input.title.slice(0, 50)}..." - ${titleScore.issues.length > 0 ? titleScore.issues[0] : 'Needs review'}`,
+        descriptionAnalysis: descriptionScore.issues[0] || "Description needs review",
+        tagsAnalysis: `${(input.tags?.length || 0)} tags provided - ${tagsScore.suggestions[0] || 'Review tag strategy'}`,
+        hashtagsAnalysis: hashtagsScore.suggestions[0] || "Hashtags optimal",
+        thumbnailAnalysis: "Thumbnail requires manual review",
+        topicPositioning: `Topic: ${titleKeywords.slice(0, 3).join(', ')}`,
+        brandAlignment: "Review brand consistency",
+        promisePayoff: input.transcript ? "Transcript available for promise/payoff check" : "No transcript - cannot verify"
       },
       graphOptimization: aiAnalysis.graphOptimization || {
-        adjacentTopics: [],
+        adjacentTopics: titleKeywords.slice(0, 3),
         bridgeKeywords: [],
         watchNextFunnel: []
       },
       retentionEngineering: aiAnalysis.retentionEngineering || {
-        openingHookRewrite: "Provide transcript for accurate hook analysis",
-        retentionInterrupts: []
+        openingHookRewrite: input.transcript 
+          ? `Based on detected hook: "${hookExcerpt?.slice(0, 100) || ''}"...` 
+          : "Provide transcript for hook analysis",
+        retentionInterrupts: detectedPatternInterrupts.length > 0 
+          ? detectedPatternInterrupts 
+          : ["Add pattern interrupts like 'But wait', 'Here's the thing'"]
       },
       improvedTitle: aiAnalysis.improvedTitle || input.title,
+      titleVariants: aiAnalysis.titleVariants || [
+        { style: 'Original', title: input.title }
+      ],
       improvedDescription: aiAnalysis.improvedDescription || input.description || '',
       improvedTags: aiAnalysis.improvedTags || input.tags || [],
       improvedHashtags: aiAnalysis.improvedHashtags || input.hashtags || [],
+      hookScripts: aiAnalysis.hookScripts || [],
+      pinnedCommentSuggestion: aiAnalysis.pinnedCommentSuggestion || '',
       priorityActions: aiAnalysis.priorityActions || [
-        { priority: 'high', action: 'Review title for curiosity gap and specificity', impact: 'Potential 20-40% CTR improvement' }
+        { priority: 'high', action: titleScore.suggestions[0] || 'Review title CTR elements', impact: 'Potential CTR improvement' }
       ]
     };
 
@@ -888,7 +1187,15 @@ Generate a JSON response with these improvements and analysis:
       };
     }
 
-    return new Response(JSON.stringify(fullAnalysis), {
+    // Include inputHash and format in response for storage
+    const responseData = {
+      ...fullAnalysis,
+      inputHash,
+      formatType: isShort ? 'short' : 'long',
+      hookScore, // Include hook score in response
+    };
+
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

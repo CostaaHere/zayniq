@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AVOEAnalysisPanel from "@/components/video/AVOEAnalysisPanel";
@@ -6,6 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   ArrowLeft,
   Calendar,
@@ -20,13 +31,21 @@ import {
   Video,
   AlertCircle,
   Bug,
+  History,
+  CheckCircle2,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  FileText,
+  MessageSquare,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { analyzeWithAVOE } from "@/services/aiApi";
 import type { AVOEAnalysis, AVOEInput } from "@/types/avoe";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInMinutes } from "date-fns";
 
 // Types for database video
 interface VideoData {
@@ -43,36 +62,39 @@ interface VideoData {
   tags: string[] | null;
 }
 
-interface StoredAnalysis {
+interface AnalysisRun {
   id: string;
   youtube_video_id: string;
   status: string;
+  format_type: string | null;
+  started_at: string;
+  completed_at: string | null;
+  input_hash: string | null;
   overall_score: number | null;
-  title_score: number | null;
-  description_score: number | null;
-  tags_score: number | null;
-  hashtags_score: number | null;
-  thumbnail_score: number | null;
-  virality_score: number | null;
+  seo_score: number | null;
+  hook_score: number | null;
+  retention_score: number | null;
   confidence_score: number | null;
+  output: any;
+  evidence: any;
+  title_breakdown: any;
+  description_breakdown: any;
+  tags_breakdown: any;
+  hashtags_breakdown: any;
+  thumbnail_breakdown: any;
+  virality_breakdown: any;
   improved_title: string | null;
   improved_description: string | null;
   improved_tags: string[] | null;
   improved_hashtags: string[] | null;
-  priority_actions: any[] | null;
-  packaging_audit: any | null;
-  graph_optimization: any | null;
-  retention_engineering: any | null;
-  confidence_factors: string[] | null;
-  data_warnings: string[] | null;
-  title_breakdown: any | null;
-  description_breakdown: any | null;
-  tags_breakdown: any | null;
-  hashtags_breakdown: any | null;
-  thumbnail_breakdown: any | null;
-  virality_breakdown: any | null;
+  packaging_audit: any;
+  graph_optimization: any;
+  retention_engineering: any;
+  competitive_strategy: any | null;
+  priority_actions: any[];
+  confidence_factors: string[];
+  data_warnings: string[];
   error_message: string | null;
-  format_type: string | null;
   created_at: string;
 }
 
@@ -92,10 +114,18 @@ const formatDate = (dateStr: string | null): string => {
   }
 };
 
+const formatDateTime = (dateStr: string | null): string => {
+  if (!dateStr) return "Unknown";
+  try {
+    return format(parseISO(dateStr), "MMM d, yyyy 'at' h:mm a");
+  } catch {
+    return dateStr;
+  }
+};
+
 const formatDuration = (duration: string | null): string => {
   if (!duration) return "0:00";
   
-  // Handle ISO 8601 duration (PT#H#M#S)
   const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (match) {
     const hours = parseInt(match[1] || "0");
@@ -135,14 +165,21 @@ const VideoDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Analysis state
-  const [storedAnalysis, setStoredAnalysis] = useState<StoredAnalysis | null>(null);
+  // Analysis runs state
+  const [analysisRuns, setAnalysisRuns] = useState<AnalysisRun[]>([]);
+  const [selectedRun, setSelectedRun] = useState<AnalysisRun | null>(null);
   const [avoeAnalysis, setAvoeAnalysis] = useState<AVOEAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
+  // Rerun confirmation dialog
+  const [showRerunDialog, setShowRerunDialog] = useState(false);
+  const [lastRunAge, setLastRunAge] = useState<number>(0);
 
-  // Debug mode
+  // UI state
   const [showDebug, setShowDebug] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(false);
+  const [showRunHistory, setShowRunHistory] = useState(false);
 
   // Calculate if video is a short (≤60 seconds)
   const isShort = video ? getDurationSeconds(video.duration) <= 60 : false;
@@ -160,7 +197,6 @@ const VideoDetail = () => {
       setError(null);
 
       try {
-        // Fetch video by youtube_video_id (not by database id)
         const { data, error: fetchError } = await supabase
           .from("youtube_videos")
           .select("*")
@@ -179,7 +215,6 @@ const VideoDetail = () => {
           return;
         }
 
-        // Map the database columns to our interface
         const videoData: VideoData = {
           id: data.id,
           youtube_video_id: data.youtube_video_id,
@@ -195,9 +230,7 @@ const VideoDetail = () => {
         };
 
         setVideo(videoData);
-
-        // Fetch existing analysis
-        await fetchExistingAnalysis(youtubeVideoId);
+        await fetchAnalysisRuns(youtubeVideoId);
       } catch (err) {
         console.error("Error:", err);
         setError("An unexpected error occurred");
@@ -209,55 +242,59 @@ const VideoDetail = () => {
     fetchVideo();
   }, [youtubeVideoId, user]);
 
-  // Fetch existing analysis from database
-  const fetchExistingAnalysis = async (videoId: string) => {
+  // Fetch analysis runs from database
+  const fetchAnalysisRuns = async (videoId: string) => {
     if (!user) return;
 
     try {
       const { data, error } = await supabase
-        .from("video_analyses")
+        .from("analysis_runs")
         .select("*")
         .eq("user_id", user.id)
         .eq("youtube_video_id", videoId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("started_at", { ascending: false })
+        .limit(10);
 
       if (error) {
-        console.error("Error fetching analysis:", error);
+        console.error("Error fetching analysis runs:", error);
         return;
       }
 
-      if (data && data.status === "completed") {
-        setStoredAnalysis(data as StoredAnalysis);
+      if (data && data.length > 0) {
+        setAnalysisRuns(data as AnalysisRun[]);
         
-        // Convert stored analysis to AVOEAnalysis format for display
-        const converted = convertStoredToAVOE(data as StoredAnalysis);
-        setAvoeAnalysis(converted);
-      } else if (data && data.status === "running") {
-        setIsAnalyzing(true);
-        // Poll for completion
-        pollAnalysisStatus(data.id);
-      } else if (data && data.status === "failed") {
-        setAnalysisError(data.error_message || "Analysis failed");
+        // Select the latest completed run
+        const latestCompleted = data.find(r => r.status === "completed");
+        if (latestCompleted) {
+          setSelectedRun(latestCompleted as AnalysisRun);
+          const converted = convertRunToAVOE(latestCompleted as AnalysisRun);
+          setAvoeAnalysis(converted);
+        }
+        
+        // Check if there's a running analysis
+        const runningAnalysis = data.find(r => r.status === "running");
+        if (runningAnalysis) {
+          setIsAnalyzing(true);
+          pollAnalysisStatus(runningAnalysis.id);
+        }
       }
     } catch (err) {
-      console.error("Error fetching analysis:", err);
+      console.error("Error fetching runs:", err);
     }
   };
 
   // Poll for analysis completion
-  const pollAnalysisStatus = async (analysisId: string) => {
-    const maxAttempts = 60; // 2 minutes max
+  const pollAnalysisStatus = async (runId: string) => {
+    const maxAttempts = 90; // 3 minutes max
     let attempts = 0;
 
     const poll = async () => {
       attempts++;
       
       const { data, error } = await supabase
-        .from("video_analyses")
+        .from("analysis_runs")
         .select("*")
-        .eq("id", analysisId)
+        .eq("id", runId)
         .single();
 
       if (error || !data) {
@@ -268,9 +305,11 @@ const VideoDetail = () => {
 
       if (data.status === "completed") {
         setIsAnalyzing(false);
-        setStoredAnalysis(data as StoredAnalysis);
-        const converted = convertStoredToAVOE(data as StoredAnalysis);
+        const run = data as AnalysisRun;
+        setSelectedRun(run);
+        const converted = convertRunToAVOE(run);
         setAvoeAnalysis(converted);
+        setAnalysisRuns(prev => [run, ...prev.filter(r => r.id !== run.id)]);
         toast.success("AVOE Analysis complete!");
         return;
       }
@@ -292,20 +331,20 @@ const VideoDetail = () => {
     poll();
   };
 
-  // Convert stored analysis to AVOE format
-  const convertStoredToAVOE = (stored: StoredAnalysis): AVOEAnalysis => {
+  // Convert analysis run to AVOE format
+  const convertRunToAVOE = (run: AnalysisRun): AVOEAnalysis => {
     return {
-      titleScore: stored.title_breakdown || { total: stored.title_score || 0, breakdown: [], issues: [], suggestions: [] },
-      descriptionScore: stored.description_breakdown || { total: stored.description_score || 0, breakdown: [], issues: [], suggestions: [] },
-      tagsScore: stored.tags_breakdown || { total: stored.tags_score || 0, breakdown: [], issues: [], suggestions: [] },
-      hashtagsScore: stored.hashtags_breakdown || { total: stored.hashtags_score || 0, breakdown: [], issues: [], suggestions: [] },
-      thumbnailScore: stored.thumbnail_breakdown || { total: stored.thumbnail_score || 0, breakdown: [], issues: [], suggestions: [] },
-      viralityScore: stored.virality_breakdown || { total: stored.virality_score || 0, breakdown: [], issues: [], suggestions: [] },
-      overallScore: stored.overall_score || 0,
-      confidenceScore: stored.confidence_score || 0,
-      confidenceFactors: stored.confidence_factors || [],
-      dataWarnings: stored.data_warnings || [],
-      packagingAudit: stored.packaging_audit || {
+      titleScore: run.title_breakdown || { total: 0, breakdown: [], issues: [], suggestions: [] },
+      descriptionScore: run.description_breakdown || { total: 0, breakdown: [], issues: [], suggestions: [] },
+      tagsScore: run.tags_breakdown || { total: 0, breakdown: [], issues: [], suggestions: [] },
+      hashtagsScore: run.hashtags_breakdown || { total: 0, breakdown: [], issues: [], suggestions: [] },
+      thumbnailScore: run.thumbnail_breakdown || { total: 0, breakdown: [], issues: [], suggestions: [] },
+      viralityScore: run.virality_breakdown || { total: 0, breakdown: [], issues: [], suggestions: [] },
+      overallScore: run.overall_score || 0,
+      confidenceScore: run.confidence_score || 0,
+      confidenceFactors: run.confidence_factors || [],
+      dataWarnings: run.data_warnings || [],
+      packagingAudit: run.packaging_audit || {
         titleAnalysis: "",
         descriptionAnalysis: "",
         tagsAnalysis: "",
@@ -315,42 +354,70 @@ const VideoDetail = () => {
         brandAlignment: "",
         promisePayoff: "",
       },
-      graphOptimization: stored.graph_optimization || {
+      graphOptimization: run.graph_optimization || {
         adjacentTopics: [],
         bridgeKeywords: [],
         watchNextFunnel: [],
       },
-      retentionEngineering: stored.retention_engineering || {
+      retentionEngineering: run.retention_engineering || {
         openingHookRewrite: "",
         retentionInterrupts: [],
       },
-      improvedTitle: stored.improved_title || "",
-      improvedDescription: stored.improved_description || "",
-      improvedTags: stored.improved_tags || [],
-      improvedHashtags: stored.improved_hashtags || [],
-      priorityActions: stored.priority_actions || [],
+      competitiveStrategy: run.competitive_strategy,
+      improvedTitle: run.improved_title || "",
+      improvedDescription: run.improved_description || "",
+      improvedTags: run.improved_tags || [],
+      improvedHashtags: run.improved_hashtags || [],
+      priorityActions: run.priority_actions || [],
     };
   };
 
+  // Check if we should prompt for rerun
+  const handleAnalyzeClick = useCallback(() => {
+    if (analysisRuns.length > 0) {
+      const latestRun = analysisRuns[0];
+      const ageMinutes = differenceInMinutes(new Date(), parseISO(latestRun.started_at));
+      setLastRunAge(ageMinutes);
+      
+      if (ageMinutes < 10) {
+        setShowRerunDialog(true);
+        return;
+      }
+    }
+    
+    runAnalysis();
+  }, [analysisRuns]);
+
   // Run AVOE analysis
-  const handleAVOEAnalysis = async () => {
+  const runAnalysis = async () => {
     if (!video || !user || !youtubeVideoId) {
       toast.error("Cannot analyze: Missing video data");
       return;
     }
 
+    setShowRerunDialog(false);
     setIsAnalyzing(true);
     setAnalysisError(null);
 
     try {
-      // Create analysis record in database
-      const { data: analysisRecord, error: insertError } = await supabase
-        .from("video_analyses")
+      // Create analysis run record
+      const { data: runRecord, error: insertError } = await supabase
+        .from("analysis_runs")
         .insert({
           user_id: user.id,
           youtube_video_id: youtubeVideoId,
           status: "running",
           format_type: isShort ? "short" : "long",
+          input_snapshot: {
+            title: video.title,
+            description: video.description,
+            tags: video.tags,
+            viewCount: video.view_count,
+            likeCount: video.like_count,
+            commentCount: video.comment_count,
+            duration: video.duration,
+            publishedAt: video.published_at,
+          },
         })
         .select()
         .single();
@@ -360,56 +427,78 @@ const VideoDetail = () => {
       }
 
       // Prepare input for AVOE
-      const input: AVOEInput = {
+      const input: AVOEInput & { 
+        youtubeVideoId: string; 
+        durationSeconds: number;
+        viewCount?: number;
+        likeCount?: number;
+        commentCount?: number;
+        publishedAt?: string;
+      } = {
+        youtubeVideoId,
         title: video.title,
         description: video.description || undefined,
         tags: video.tags || undefined,
         thumbnailUrl: video.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
         videoLength: video.duration || undefined,
+        durationSeconds: getDurationSeconds(video.duration),
+        viewCount: video.view_count || undefined,
+        likeCount: video.like_count || undefined,
+        commentCount: video.comment_count || undefined,
+        publishedAt: video.published_at || undefined,
       };
 
       // Call AVOE analysis
-      const result = await analyzeWithAVOE(input);
+      const { data: result, error: fnError } = await supabase.functions.invoke('avoe-analyze', {
+        body: input
+      });
 
-      // Update analysis record with results
+      if (fnError) {
+        throw new Error(fnError.message || 'Analysis failed');
+      }
+
+      // Update analysis run with results
       await supabase
-        .from("video_analyses")
+        .from("analysis_runs")
         .update({
           status: "completed",
+          completed_at: new Date().toISOString(),
           overall_score: result.overallScore,
-          title_score: result.titleScore.total,
-          description_score: result.descriptionScore.total,
-          tags_score: result.tagsScore.total,
-          hashtags_score: result.hashtagsScore.total,
-          thumbnail_score: result.thumbnailScore.total,
-          virality_score: result.viralityScore.total,
+          hook_score: result.hookScore?.total,
           confidence_score: result.confidenceScore,
-          title_breakdown: JSON.parse(JSON.stringify(result.titleScore)),
-          description_breakdown: JSON.parse(JSON.stringify(result.descriptionScore)),
-          tags_breakdown: JSON.parse(JSON.stringify(result.tagsScore)),
-          hashtags_breakdown: JSON.parse(JSON.stringify(result.hashtagsScore)),
-          thumbnail_breakdown: JSON.parse(JSON.stringify(result.thumbnailScore)),
-          virality_breakdown: JSON.parse(JSON.stringify(result.viralityScore)),
-          packaging_audit: JSON.parse(JSON.stringify(result.packagingAudit)),
-          graph_optimization: JSON.parse(JSON.stringify(result.graphOptimization)),
-          retention_engineering: JSON.parse(JSON.stringify(result.retentionEngineering)),
-          competitive_strategy: result.competitiveStrategy ? JSON.parse(JSON.stringify(result.competitiveStrategy)) : null,
+          input_hash: result.inputHash,
+          output: result,
+          evidence: result.evidence,
+          title_breakdown: result.titleScore,
+          description_breakdown: result.descriptionScore,
+          tags_breakdown: result.tagsScore,
+          hashtags_breakdown: result.hashtagsScore,
+          thumbnail_breakdown: result.thumbnailScore,
+          virality_breakdown: result.viralityScore,
+          packaging_audit: result.packagingAudit,
+          graph_optimization: result.graphOptimization,
+          retention_engineering: result.retentionEngineering,
+          competitive_strategy: result.competitiveStrategy,
           improved_title: result.improvedTitle,
           improved_description: result.improvedDescription,
           improved_tags: result.improvedTags,
           improved_hashtags: result.improvedHashtags,
-          priority_actions: JSON.parse(JSON.stringify(result.priorityActions)),
+          priority_actions: result.priorityActions,
           confidence_factors: result.confidenceFactors,
           data_warnings: result.dataWarnings,
         })
-        .eq("id", analysisRecord.id);
+        .eq("id", runRecord.id);
 
-      setAvoeAnalysis(result);
-      setStoredAnalysis({
-        ...analysisRecord,
+      const updatedRun = {
+        ...runRecord,
         status: "completed",
         overall_score: result.overallScore,
-      } as StoredAnalysis);
+        ...result,
+      } as AnalysisRun;
+
+      setSelectedRun(updatedRun);
+      setAvoeAnalysis(result);
+      setAnalysisRuns(prev => [updatedRun, ...prev]);
       
       toast.success("AVOE Analysis complete!");
     } catch (err) {
@@ -423,13 +512,18 @@ const VideoDetail = () => {
   };
 
   const handleApplyImprovement = (type: 'title' | 'description' | 'tags' | 'hashtags', value: string | string[]) => {
-    toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} improvement copied!`);
-    // Copy to clipboard
     const textValue = Array.isArray(value) ? value.join(", ") : value;
     navigator.clipboard.writeText(textValue);
+    toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} copied to clipboard!`);
   };
 
-  // Handle sync videos
+  const handleSelectRun = (run: AnalysisRun) => {
+    setSelectedRun(run);
+    const converted = convertRunToAVOE(run);
+    setAvoeAnalysis(converted);
+    setShowRunHistory(false);
+  };
+
   const handleSyncVideos = () => {
     navigate("/dashboard/videos");
     toast.info("Please sync your videos from the Videos page");
@@ -447,12 +541,6 @@ const VideoDetail = () => {
               <div className="space-y-4">
                 <Skeleton className="h-8 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
-                <div className="grid grid-cols-4 gap-4">
-                  <Skeleton className="h-20" />
-                  <Skeleton className="h-20" />
-                  <Skeleton className="h-20" />
-                  <Skeleton className="h-20" />
-                </div>
               </div>
             </div>
             <div className="lg:col-span-1">
@@ -526,28 +614,51 @@ const VideoDetail = () => {
     );
   }
 
-  // No video loaded (shouldn't happen, but safety check)
-  if (!video) {
-    return null;
-  }
+  if (!video) return null;
 
-  // Thumbnail URL with fallback
   const thumbnailUrl = video.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`;
 
   return (
     <DashboardLayout title="Video Details">
-      <div className="space-y-6">
-        {/* Back Button */}
-        <Link
-          to="/dashboard/videos"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Videos
-        </Link>
+      {/* Rerun Confirmation Dialog */}
+      <AlertDialog open={showRerunDialog} onOpenChange={setShowRerunDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reuse or Rerun Analysis?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You ran an analysis {lastRunAge} minute{lastRunAge !== 1 ? 's' : ''} ago. 
+              Would you like to reuse the existing results or run a fresh analysis?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowRerunDialog(false);
+                // Just use existing
+              }}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            >
+              Use Existing
+            </AlertDialogAction>
+            <AlertDialogAction onClick={runAnalysis}>
+              Run Fresh Analysis
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        {/* Debug Toggle (hidden by default) */}
-        <div className="flex justify-end">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <Link
+            to="/dashboard/videos"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Videos
+          </Link>
+          
           <button
             onClick={() => setShowDebug(!showDebug)}
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
@@ -565,23 +676,24 @@ const VideoDetail = () => {
             <AlertDescription className="font-mono text-xs space-y-1">
               <div>Route youtubeVideoId: <span className="text-primary">{youtubeVideoId}</span></div>
               <div>Fetched video.youtube_video_id: <span className="text-primary">{video?.youtube_video_id}</span></div>
-              <div>Stored analysis.youtube_video_id: <span className="text-primary">{storedAnalysis?.youtube_video_id || "N/A"}</span></div>
+              <div>Selected run.youtube_video_id: <span className="text-primary">{selectedRun?.youtube_video_id || "N/A"}</span></div>
+              <div>Total runs: <span className="text-primary">{analysisRuns.length}</span></div>
               {youtubeVideoId !== video?.youtube_video_id && (
-                <div className="text-destructive font-bold">⚠️ ID MISMATCH BUG DETECTED!</div>
+                <div className="text-destructive font-bold">⚠️ VIDEO ID MISMATCH BUG!</div>
               )}
-              {storedAnalysis && storedAnalysis.youtube_video_id !== youtubeVideoId && (
-                <div className="text-destructive font-bold">⚠️ ANALYSIS ID MISMATCH!</div>
+              {selectedRun && selectedRun.youtube_video_id !== youtubeVideoId && (
+                <div className="text-destructive font-bold">⚠️ ANALYSIS RUN ID MISMATCH!</div>
               )}
             </AlertDescription>
           </Alert>
         )}
 
+        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
+          {/* Video Section */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Video Preview */}
+            {/* Video Player */}
             <div className="bg-card rounded-xl border border-border overflow-hidden">
-              {/* YouTube Embed */}
               <div className="relative aspect-video bg-black">
                 <iframe
                   src={`https://www.youtube.com/embed/${youtubeVideoId}`}
@@ -660,7 +772,7 @@ const VideoDetail = () => {
                 {/* Tags */}
                 {video.tags && video.tags.length > 0 && (
                   <div>
-                    <h3 className="font-medium mb-2">Tags</h3>
+                    <h3 className="font-medium mb-2">Tags ({video.tags.length})</h3>
                     <div className="flex flex-wrap gap-2">
                       {video.tags.slice(0, 10).map((tag, index) => (
                         <Badge key={index} variant="secondary">
@@ -675,14 +787,265 @@ const VideoDetail = () => {
                 )}
               </div>
             </div>
+
+            {/* Analysis Results Section (Below Video) */}
+            {avoeAnalysis && selectedRun && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                {/* Run Header */}
+                <div className="p-4 border-b border-border bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Zap className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Analysis Run</span>
+                          <Badge variant="outline" className="text-xs">
+                            #{analysisRuns.findIndex(r => r.id === selectedRun.id) + 1}
+                          </Badge>
+                          <Badge variant={isShort ? "default" : "secondary"} className="text-xs">
+                            {isShort ? "Short Mode" : "Long Mode"}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDateTime(selectedRun.started_at)}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {analysisRuns.length > 1 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowRunHistory(!showRunHistory)}
+                        className="gap-1"
+                      >
+                        <History className="w-4 h-4" />
+                        History ({analysisRuns.length})
+                        {showRunHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Run History Dropdown */}
+                  {showRunHistory && (
+                    <div className="mt-4 space-y-2">
+                      {analysisRuns.map((run, index) => (
+                        <button
+                          key={run.id}
+                          onClick={() => handleSelectRun(run)}
+                          className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                            selectedRun.id === run.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Run #{index + 1}</span>
+                              {run.status === "completed" && (
+                                <CheckCircle2 className="w-4 h-4 text-primary" />
+                              )}
+                              {run.status === "failed" && (
+                                <AlertCircle className="w-4 h-4 text-destructive" />
+                              )}
+                            </div>
+                            <span className="text-sm font-bold text-primary">
+                              {run.overall_score || 0}/100
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {formatDateTime(run.started_at)}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Confidence Meter */}
+                <div className="p-4 border-b border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Confidence Score</span>
+                    <span className="text-sm font-bold">{avoeAnalysis.confidenceScore}/100</span>
+                  </div>
+                  <Progress value={avoeAnalysis.confidenceScore} className="h-2" />
+                  
+                  {/* Inputs Checklist */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <FileText className="w-3 h-3" />
+                      Metadata ✅
+                    </Badge>
+                    <Badge 
+                      variant={selectedRun.evidence?.inputsAvailable?.transcript ? "secondary" : "outline"} 
+                      className="gap-1"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      Transcript {selectedRun.evidence?.inputsAvailable?.transcript ? '✅' : '❌'}
+                    </Badge>
+                    <Badge 
+                      variant={selectedRun.evidence?.inputsAvailable?.comments ? "secondary" : "outline"} 
+                      className="gap-1"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      Comments {selectedRun.evidence?.inputsAvailable?.comments ? '✅' : '❌'}
+                    </Badge>
+                    <Badge 
+                      variant={selectedRun.evidence?.inputsAvailable?.channelBaseline ? "secondary" : "outline"} 
+                      className="gap-1"
+                    >
+                      <BarChart3 className="w-3 h-3" />
+                      Channel Baseline {selectedRun.evidence?.inputsAvailable?.channelBaseline ? '✅' : '❌'}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Evidence Section */}
+                {selectedRun.evidence && (
+                  <div className="p-4 border-b border-border">
+                    <button
+                      onClick={() => setShowEvidence(!showEvidence)}
+                      className="flex items-center justify-between w-full text-left"
+                    >
+                      <span className="font-medium">Evidence & Detected Patterns</span>
+                      {showEvidence ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                    
+                    {showEvidence && (
+                      <div className="mt-4 space-y-4">
+                        {/* Keywords */}
+                        {selectedRun.evidence.titleKeywords?.length > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-muted-foreground">Detected Keywords from Title</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(selectedRun.evidence.titleKeywords.join(', '));
+                                  toast.success("Keywords copied!");
+                                }}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {selectedRun.evidence.titleKeywords.map((kw: string, i: number) => (
+                                <Badge key={i} variant="outline">{kw}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Word Frequency */}
+                        {selectedRun.evidence.wordFrequency && Object.keys(selectedRun.evidence.wordFrequency).length > 0 && (
+                          <div>
+                            <span className="text-sm text-muted-foreground">Most Frequent Words in Transcript</span>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {Object.entries(selectedRun.evidence.wordFrequency as Record<string, number>).map(([word, count]) => (
+                                <Badge key={word} variant="secondary">{word} ({count})</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Hook Excerpt */}
+                        {selectedRun.evidence.hookExcerpt && (
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-muted-foreground">Hook Excerpt (first 10 seconds)</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(selectedRun.evidence.hookExcerpt);
+                                  toast.success("Hook copied!");
+                                }}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm bg-muted/50 p-3 rounded-lg italic">
+                              "{selectedRun.evidence.hookExcerpt.slice(0, 300)}..."
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Pattern Interrupts */}
+                        {selectedRun.evidence.detectedPatternInterrupts?.length > 0 && (
+                          <div>
+                            <span className="text-sm text-muted-foreground">Detected Pattern Interrupts</span>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {selectedRun.evidence.detectedPatternInterrupts.map((p: string, i: number) => (
+                                <Badge key={i} className="bg-primary/10 text-primary border-primary/20">{p}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Comment Themes */}
+                        {selectedRun.evidence.topCommentThemes?.length > 0 && (
+                          <div>
+                            <span className="text-sm text-muted-foreground">Top Comment Themes</span>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {selectedRun.evidence.topCommentThemes.map((theme: string, i: number) => (
+                                <Badge key={i} variant="outline">{theme}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* No transcript warning */}
+                        {!selectedRun.evidence.inputsAvailable?.transcript && (
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Transcript Not Available</AlertTitle>
+                            <AlertDescription>
+                              Hook and retention analysis confidence is reduced. Add captions to your video for better analysis.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Data Warnings */}
+                {avoeAnalysis.dataWarnings.length > 0 && (
+                  <div className="p-4 border-b border-border">
+                    <Alert variant="default" className="border-amber-500/30 bg-amber-500/5">
+                      <AlertCircle className="h-4 w-4 text-amber-500" />
+                      <AlertTitle className="text-amber-500">Data Warnings</AlertTitle>
+                      <AlertDescription>
+                        <ul className="list-disc list-inside text-sm space-y-1 mt-2">
+                          {avoeAnalysis.dataWarnings.map((warning, i) => (
+                            <li key={i}>{warning}</li>
+                          ))}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+
+                {/* Full Analysis Panel */}
+                <div className="p-4">
+                  <AVOEAnalysisPanel 
+                    analysis={avoeAnalysis} 
+                    onApplyImprovement={handleApplyImprovement}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Sidebar - Analysis */}
+          {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
               {/* AVOE Analysis Button */}
               <Button
-                onClick={handleAVOEAnalysis}
+                onClick={handleAnalyzeClick}
                 disabled={isAnalyzing}
                 className="w-full gap-2"
                 size="lg"
@@ -692,10 +1055,15 @@ const VideoDetail = () => {
                 ) : (
                   <Target className="w-4 h-4" />
                 )}
-                {isAnalyzing ? `Analyzing ${youtubeVideoId}...` : "Analyze with AVOE"}
+                {isAnalyzing 
+                  ? `Analyzing ${youtubeVideoId.slice(0, 8)}...` 
+                  : analysisRuns.length > 0 
+                    ? "Rerun AVOE Analysis" 
+                    : "Analyze with AVOE"
+                }
               </Button>
 
-              {/* Format Type Indicator */}
+              {/* Format Indicator */}
               <div className="text-center text-sm text-muted-foreground">
                 {isShort ? "🎬 Short Video Analysis Mode" : "📺 Long Video Analysis Mode"}
               </div>
@@ -710,7 +1078,7 @@ const VideoDetail = () => {
                     <Button 
                       variant="link" 
                       className="p-0 h-auto ml-2"
-                      onClick={handleAVOEAnalysis}
+                      onClick={runAnalysis}
                     >
                       Retry
                     </Button>
@@ -723,23 +1091,53 @@ const VideoDetail = () => {
                 <div className="bg-card rounded-xl border border-border p-6 space-y-4">
                   <div className="flex items-center gap-3">
                     <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    <span className="text-sm font-medium">Analyzing video...</span>
+                    <span className="text-sm font-medium">Running Analysis...</span>
                   </div>
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-4 w-1/2" />
                   <p className="text-xs text-muted-foreground">
-                    Video ID: {youtubeVideoId}
+                    Video: {youtubeVideoId}
                   </p>
                 </div>
               )}
 
-              {/* AVOE Analysis Results */}
+              {/* Quick Score Summary (when analysis exists) */}
               {!isAnalyzing && avoeAnalysis && (
-                <AVOEAnalysisPanel 
-                  analysis={avoeAnalysis} 
-                  onApplyImprovement={handleApplyImprovement}
-                />
+                <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-primary mb-1">
+                      {avoeAnalysis.overallScore}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Overall Score</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Title</span>
+                      <span className="font-medium">{avoeAnalysis.titleScore.total}/100</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Description</span>
+                      <span className="font-medium">{avoeAnalysis.descriptionScore.total}/100</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Tags</span>
+                      <span className="font-medium">{avoeAnalysis.tagsScore.total}/100</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Virality</span>
+                      <span className="font-medium">{avoeAnalysis.viralityScore.total}/100</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Confidence</span>
+                      <span className="font-medium">{avoeAnalysis.confidenceScore}/100</span>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* No Analysis Yet */}
