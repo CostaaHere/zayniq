@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AVOEAnalysisPanel from "@/components/video/AVOEAnalysisPanel";
+import ViralSEOPanel, { type ViralSEOResult } from "@/components/video/ViralSEOPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +41,7 @@ import {
   FileText,
   MessageSquare,
   BarChart3,
+  Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,6 +182,11 @@ const VideoDetail = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
   const [showRunHistory, setShowRunHistory] = useState(false);
+
+  // Viral SEO Engine state
+  const [seoResult, setSeoResult] = useState<ViralSEOResult | null>(null);
+  const [isRunningViralSEO, setIsRunningViralSEO] = useState(false);
+  const [viralSEOError, setViralSEOError] = useState<string | null>(null);
 
   // Calculate if video is a short (≤60 seconds)
   const isShort = video ? getDurationSeconds(video.duration) <= 60 : false;
@@ -555,6 +562,76 @@ const VideoDetail = () => {
   const handleSyncVideos = () => {
     navigate("/dashboard/videos");
     toast.info("Please sync your videos from the Videos page");
+  };
+
+  // Run Viral SEO Engine
+  const runViralSEO = async () => {
+    if (!user || !youtubeVideoId || !video) {
+      toast.error("Cannot run SEO: Missing video data");
+      return;
+    }
+
+    setIsRunningViralSEO(true);
+    setViralSEOError(null);
+
+    try {
+      // Re-fetch video if needed
+      let v = video;
+      if (!v.title) {
+        const { data } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("youtube_video_id", youtubeVideoId)
+          .maybeSingle();
+        if (data) {
+          v = {
+            id: data.id,
+            youtube_video_id: data.youtube_video_id,
+            title: data.title,
+            description: data.description,
+            thumbnail_url: data.thumbnail_url,
+            published_at: data.published_at,
+            duration: data.duration,
+            view_count: data.view_count ? Number(data.view_count) : null,
+            like_count: data.like_count ? Number(data.like_count) : null,
+            comment_count: data.comment_count ? Number(data.comment_count) : null,
+            tags: Array.isArray(data.tags) ? (data.tags as string[]) : null,
+          };
+        }
+      }
+
+      const { data: result, error: fnError } = await supabase.functions.invoke('viral-seo-engine', {
+        body: {
+          video_id: youtubeVideoId,
+          current_title: v.title,
+          current_description: v.description || '',
+          current_tags: v.tags || [],
+          video_type: isShort ? 'short' : 'long',
+          niche: '', // Will be auto-detected
+          language: 'English',
+          region: 'Global',
+          channel_authority_level: 'medium',
+          thumbnail_url: v.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+          view_count: v.view_count ?? undefined,
+          like_count: v.like_count ?? undefined,
+          comment_count: v.comment_count ?? undefined,
+          duration_seconds: getDurationSeconds(v.duration),
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message || 'Viral SEO failed');
+      
+      setSeoResult(result as ViralSEOResult);
+      toast.success(`Viral SEO Complete! Score: ${result.final_seo_score}/100`);
+    } catch (err) {
+      console.error("Viral SEO error:", err);
+      const msg = err instanceof Error ? err.message : "Viral SEO failed";
+      setViralSEOError(msg);
+      toast.error(msg);
+    } finally {
+      setIsRunningViralSEO(false);
+    }
   };
 
   // Loading state
@@ -1066,6 +1143,27 @@ const VideoDetail = () => {
                 </div>
               </div>
             )}
+
+            {/* Viral SEO Engine Results */}
+            {seoResult && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                <ViralSEOPanel result={seoResult} />
+              </div>
+            )}
+
+            {/* Viral SEO Error */}
+            {viralSEOError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Viral SEO Failed</AlertTitle>
+                <AlertDescription>
+                  {viralSEOError}
+                  <Button variant="link" className="p-0 h-auto ml-2" onClick={runViralSEO}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -1089,6 +1187,22 @@ const VideoDetail = () => {
                     ? "Rerun AVOE Analysis" 
                     : "Analyze with AVOE"
                 }
+              </Button>
+
+              {/* Viral SEO Engine Button */}
+              <Button
+                onClick={runViralSEO}
+                disabled={isRunningViralSEO}
+                variant="outline"
+                className="w-full gap-2 border-primary/30 hover:bg-primary/10"
+                size="lg"
+              >
+                {isRunningViralSEO ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Rocket className="w-4 h-4" />
+                )}
+                {isRunningViralSEO ? "Running SEO Engine..." : "🚀 Viral SEO Engine"}
               </Button>
 
               {/* Format Indicator */}
