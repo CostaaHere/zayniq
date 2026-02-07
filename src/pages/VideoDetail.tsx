@@ -390,8 +390,8 @@ const VideoDetail = () => {
 
   // Run AVOE analysis
   const runAnalysis = async () => {
-    if (!video || !user || !youtubeVideoId) {
-      toast.error("Cannot analyze: Missing video data");
+    if (!user || !youtubeVideoId) {
+      toast.error("Cannot analyze: Missing video ID or not authenticated");
       return;
     }
 
@@ -400,6 +400,41 @@ const VideoDetail = () => {
     setAnalysisError(null);
 
     try {
+      // Ensure we have complete video data - re-fetch from DB if needed
+      let videoData = video;
+      if (!videoData || !videoData.title || !videoData.description) {
+        console.log("[AVOE] Video data incomplete, re-fetching from DB...");
+        const { data: freshVideo, error: fetchErr } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("youtube_video_id", youtubeVideoId)
+          .maybeSingle();
+
+        if (fetchErr || !freshVideo) {
+          toast.error("Video not found in database. Please sync your videos first.");
+          setIsAnalyzing(false);
+          return;
+        }
+
+        videoData = {
+          id: freshVideo.id,
+          youtube_video_id: freshVideo.youtube_video_id,
+          title: freshVideo.title,
+          description: freshVideo.description,
+          thumbnail_url: freshVideo.thumbnail_url,
+          published_at: freshVideo.published_at,
+          duration: freshVideo.duration,
+          view_count: freshVideo.view_count ? Number(freshVideo.view_count) : null,
+          like_count: freshVideo.like_count ? Number(freshVideo.like_count) : null,
+          comment_count: freshVideo.comment_count ? Number(freshVideo.comment_count) : null,
+          tags: Array.isArray(freshVideo.tags) ? (freshVideo.tags as string[]) : null,
+        };
+        setVideo(videoData);
+      }
+
+      const currentIsShort = getDurationSeconds(videoData.duration) <= 60;
+
       // Create analysis run record
       const { data: runRecord, error: insertError } = await supabase
         .from("analysis_runs")
@@ -407,16 +442,16 @@ const VideoDetail = () => {
           user_id: user.id,
           youtube_video_id: youtubeVideoId,
           status: "running",
-          format_type: isShort ? "short" : "long",
+          format_type: currentIsShort ? "short" : "long",
           input_snapshot: {
-            title: video.title,
-            description: video.description,
-            tags: video.tags,
-            viewCount: video.view_count,
-            likeCount: video.like_count,
-            commentCount: video.comment_count,
-            duration: video.duration,
-            publishedAt: video.published_at,
+            title: videoData.title,
+            description: videoData.description,
+            tags: videoData.tags || [],
+            viewCount: videoData.view_count,
+            likeCount: videoData.like_count,
+            commentCount: videoData.comment_count,
+            duration: videoData.duration,
+            publishedAt: videoData.published_at,
           },
         })
         .select()
@@ -426,26 +461,19 @@ const VideoDetail = () => {
         throw new Error("Failed to start analysis");
       }
 
-      // Prepare input for AVOE
-      const input: AVOEInput & { 
-        youtubeVideoId: string; 
-        durationSeconds: number;
-        viewCount?: number;
-        likeCount?: number;
-        commentCount?: number;
-        publishedAt?: string;
-      } = {
+      // Prepare FULL payload for AVOE - every field explicitly included
+      const input = {
         youtubeVideoId,
-        title: video.title,
-        description: video.description || undefined,
-        tags: video.tags || undefined,
-        thumbnailUrl: video.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
-        videoLength: video.duration || undefined,
-        durationSeconds: getDurationSeconds(video.duration),
-        viewCount: video.view_count || undefined,
-        likeCount: video.like_count || undefined,
-        commentCount: video.comment_count || undefined,
-        publishedAt: video.published_at || undefined,
+        title: videoData.title,
+        description: videoData.description || "",
+        tags: videoData.tags || [],
+        thumbnailUrl: videoData.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        videoLength: videoData.duration || undefined,
+        durationSeconds: getDurationSeconds(videoData.duration),
+        viewCount: videoData.view_count ?? undefined,
+        likeCount: videoData.like_count ?? undefined,
+        commentCount: videoData.comment_count ?? undefined,
+        publishedAt: videoData.published_at || undefined,
       };
 
       // Call AVOE analysis

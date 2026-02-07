@@ -141,6 +141,16 @@ interface AVOEAnalysis {
 // UTILITY FUNCTIONS
 // ============================================================
 
+function parseDurationToSeconds(duration: string | null): number | undefined {
+  if (!duration) return undefined;
+  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return undefined;
+  const hours = parseInt(match[1] || "0");
+  const minutes = parseInt(match[2] || "0");
+  const seconds = parseInt(match[3] || "0");
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 function createInputHash(input: VideoInput): string {
   const hashSource = JSON.stringify({
     title: input.title,
@@ -915,11 +925,70 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    const input: VideoInput = await req.json();
+    let input: VideoInput = await req.json();
     
+    // DEFENSIVE: If critical fields are missing but youtubeVideoId exists, fetch from DB
+    if (!input.title || !input.description || !input.thumbnailUrl || input.tags === undefined) {
+      if (!input.youtubeVideoId) {
+        return new Response(
+          JSON.stringify({ error: "video_id (youtubeVideoId) is required for AVOE analysis" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log('[AVOE v2] Missing fields detected, fetching video from DB for:', input.youtubeVideoId);
+
+      // Use service role to bypass RLS since we already verified auth above
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const adminClient = createClient(supabaseUrl, serviceKey);
+
+      // Get the authenticated user's ID
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        return new Response(
+          JSON.stringify({ error: "Authentication failed" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: dbVideo, error: dbError } = await adminClient
+        .from('youtube_videos')
+        .select('*')
+        .eq('youtube_video_id', input.youtubeVideoId)
+        .eq('user_id', authUser.id)
+        .maybeSingle();
+
+      if (dbError || !dbVideo) {
+        console.error('[AVOE v2] DB fetch failed:', dbError?.message || 'Video not found');
+        return new Response(
+          JSON.stringify({ error: `Video not found in database for ID: ${input.youtubeVideoId}. Please sync your videos first.` }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log('[AVOE v2] Merging DB data for video:', dbVideo.title);
+
+      // Merge DB data with request payload (request data takes priority where present)
+      const dbTags = Array.isArray(dbVideo.tags) ? dbVideo.tags as string[] : [];
+      input = {
+        ...input,
+        title: input.title || dbVideo.title,
+        description: input.description || dbVideo.description || undefined,
+        tags: (input.tags !== undefined && input.tags !== null) ? input.tags : dbTags,
+        thumbnailUrl: input.thumbnailUrl || dbVideo.thumbnail_url || `https://i.ytimg.com/vi/${input.youtubeVideoId}/hqdefault.jpg`,
+        videoLength: input.videoLength || dbVideo.duration || undefined,
+        durationSeconds: input.durationSeconds || (dbVideo.duration ? parseDurationToSeconds(dbVideo.duration) : undefined),
+        viewCount: input.viewCount ?? (dbVideo.view_count ? Number(dbVideo.view_count) : undefined),
+        likeCount: input.likeCount ?? (dbVideo.like_count ? Number(dbVideo.like_count) : undefined),
+        commentCount: input.commentCount ?? (dbVideo.comment_count ? Number(dbVideo.comment_count) : undefined),
+        publishedAt: input.publishedAt || dbVideo.published_at || undefined,
+      };
+    }
+
+    // Final guard: title is absolutely required
     if (!input.title) {
       return new Response(
-        JSON.stringify({ error: "Title is required for AVOE analysis" }),
+        JSON.stringify({ error: "Title is required for AVOE analysis and could not be retrieved from database" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
