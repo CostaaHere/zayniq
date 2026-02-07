@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.avoe-analyze]
 verify_jwt = false
+
+[functions.viral-seo-engine]
+verify_jwt = false
