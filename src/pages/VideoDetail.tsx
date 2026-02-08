@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AVOEAnalysisPanel from "@/components/video/AVOEAnalysisPanel";
 import ViralSEOPanel, { type ViralSEOResult } from "@/components/video/ViralSEOPanel";
+import YAREEPanel, { type YAREEResult } from "@/components/video/YAREEPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,6 +43,7 @@ import {
   MessageSquare,
   BarChart3,
   Rocket,
+  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,6 +189,11 @@ const VideoDetail = () => {
   const [seoResult, setSeoResult] = useState<ViralSEOResult | null>(null);
   const [isRunningViralSEO, setIsRunningViralSEO] = useState(false);
   const [viralSEOError, setViralSEOError] = useState<string | null>(null);
+
+  // YAREE state
+  const [yareeResult, setYareeResult] = useState<YAREEResult | null>(null);
+  const [isRunningYAREE, setIsRunningYAREE] = useState(false);
+  const [yareeError, setYareeError] = useState<string | null>(null);
 
   // Calculate if video is a short (≤60 seconds)
   const isShort = video ? getDurationSeconds(video.duration) <= 60 : false;
@@ -631,6 +638,72 @@ const VideoDetail = () => {
       toast.error(msg);
     } finally {
       setIsRunningViralSEO(false);
+    }
+  };
+
+  // Run YAREE Algorithm Analysis
+  const runYAREE = async () => {
+    if (!user || !youtubeVideoId || !video) {
+      toast.error("Cannot run YAREE: Missing video data");
+      return;
+    }
+
+    setIsRunningYAREE(true);
+    setYareeError(null);
+
+    try {
+      let v = video;
+      if (!v.title) {
+        const { data } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("youtube_video_id", youtubeVideoId)
+          .maybeSingle();
+        if (data) {
+          v = {
+            id: data.id,
+            youtube_video_id: data.youtube_video_id,
+            title: data.title,
+            description: data.description,
+            thumbnail_url: data.thumbnail_url,
+            published_at: data.published_at,
+            duration: data.duration,
+            view_count: data.view_count ? Number(data.view_count) : null,
+            like_count: data.like_count ? Number(data.like_count) : null,
+            comment_count: data.comment_count ? Number(data.comment_count) : null,
+            tags: Array.isArray(data.tags) ? (data.tags as string[]) : null,
+          };
+        }
+      }
+
+      const { data: result, error: fnError } = await supabase.functions.invoke('yaree-analyze', {
+        body: {
+          youtubeVideoId,
+          title: v.title,
+          videoType: isShort ? 'short' : 'long',
+          durationSeconds: getDurationSeconds(v.duration),
+          viewCount: v.view_count ?? undefined,
+          likeCount: v.like_count ?? undefined,
+          commentCount: v.comment_count ?? undefined,
+          publishedAt: v.published_at || undefined,
+          description: v.description || '',
+          tags: v.tags || [],
+          thumbnailUrl: v.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message || 'YAREE failed');
+
+      setYareeResult(result as YAREEResult);
+      toast.success(`YAREE Complete! Status: ${result.video_status}`);
+    } catch (err) {
+      console.error("YAREE error:", err);
+      const msg = err instanceof Error ? err.message : "YAREE failed";
+      setYareeError(msg);
+      toast.error(msg);
+    } finally {
+      setIsRunningYAREE(false);
     }
   };
 
@@ -1164,6 +1237,27 @@ const VideoDetail = () => {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* YAREE Algorithm Results */}
+            {yareeResult && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                <YAREEPanel result={yareeResult} />
+              </div>
+            )}
+
+            {/* YAREE Error */}
+            {yareeError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>YAREE Analysis Failed</AlertTitle>
+                <AlertDescription>
+                  {yareeError}
+                  <Button variant="link" className="p-0 h-auto ml-2" onClick={runYAREE}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -1203,6 +1297,22 @@ const VideoDetail = () => {
                   <Rocket className="w-4 h-4" />
                 )}
                 {isRunningViralSEO ? "Running SEO Engine..." : "🚀 Viral SEO Engine"}
+              </Button>
+
+              {/* YAREE Algorithm Analysis Button */}
+              <Button
+                onClick={runYAREE}
+                disabled={isRunningYAREE}
+                variant="outline"
+                className="w-full gap-2 border-amber-500/30 hover:bg-amber-500/10"
+                size="lg"
+              >
+                {isRunningYAREE ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Brain className="w-4 h-4" />
+                )}
+                {isRunningYAREE ? "Analyzing Algorithm..." : "🧠 YAREE Algorithm Engine"}
               </Button>
 
               {/* Format Indicator */}
