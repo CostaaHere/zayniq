@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import AVOEAnalysisPanel from "@/components/video/AVOEAnalysisPanel";
 import ViralSEOPanel, { type ViralSEOResult } from "@/components/video/ViralSEOPanel";
 import YAREEPanel, { type YAREEResult } from "@/components/video/YAREEPanel";
+import YRDEPanel, { type YRDEResult } from "@/components/video/YRDEPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +45,7 @@ import {
   BarChart3,
   Rocket,
   Brain,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -194,6 +196,11 @@ const VideoDetail = () => {
   const [yareeResult, setYareeResult] = useState<YAREEResult | null>(null);
   const [isRunningYAREE, setIsRunningYAREE] = useState(false);
   const [yareeError, setYareeError] = useState<string | null>(null);
+
+  // YRDE state
+  const [yrdeResult, setYrdeResult] = useState<YRDEResult | null>(null);
+  const [isRunningYRDE, setIsRunningYRDE] = useState(false);
+  const [yrdeError, setYrdeError] = useState<string | null>(null);
 
   // Calculate if video is a short (≤60 seconds)
   const isShort = video ? getDurationSeconds(video.duration) <= 60 : false;
@@ -704,6 +711,72 @@ const VideoDetail = () => {
       toast.error(msg);
     } finally {
       setIsRunningYAREE(false);
+    }
+  };
+
+  // Run YRDE Revenue Analysis
+  const runYRDE = async () => {
+    if (!user || !youtubeVideoId || !video) {
+      toast.error("Cannot run YRDE: Missing video data");
+      return;
+    }
+
+    setIsRunningYRDE(true);
+    setYrdeError(null);
+
+    try {
+      let v = video;
+      if (!v.title) {
+        const { data } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("youtube_video_id", youtubeVideoId)
+          .maybeSingle();
+        if (data) {
+          v = {
+            id: data.id,
+            youtube_video_id: data.youtube_video_id,
+            title: data.title,
+            description: data.description,
+            thumbnail_url: data.thumbnail_url,
+            published_at: data.published_at,
+            duration: data.duration,
+            view_count: data.view_count ? Number(data.view_count) : null,
+            like_count: data.like_count ? Number(data.like_count) : null,
+            comment_count: data.comment_count ? Number(data.comment_count) : null,
+            tags: Array.isArray(data.tags) ? (data.tags as string[]) : null,
+          };
+        }
+      }
+
+      const { data: result, error: fnError } = await supabase.functions.invoke('yrde-analyze', {
+        body: {
+          youtubeVideoId,
+          title: v.title,
+          videoType: isShort ? 'short' : 'long',
+          durationSeconds: getDurationSeconds(v.duration),
+          viewCount: v.view_count ?? undefined,
+          likeCount: v.like_count ?? undefined,
+          commentCount: v.comment_count ?? undefined,
+          publishedAt: v.published_at || undefined,
+          description: v.description || '',
+          tags: v.tags || [],
+          thumbnailUrl: v.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message || 'YRDE failed');
+
+      setYrdeResult(result as YRDEResult);
+      toast.success(`YRDE Complete! Monetization Health: ${result.monetization_health}%`);
+    } catch (err) {
+      console.error("YRDE error:", err);
+      const msg = err instanceof Error ? err.message : "YRDE failed";
+      setYrdeError(msg);
+      toast.error(msg);
+    } finally {
+      setIsRunningYRDE(false);
     }
   };
 
@@ -1258,6 +1331,27 @@ const VideoDetail = () => {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* YRDE Revenue Results */}
+            {yrdeResult && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                <YRDEPanel result={yrdeResult} />
+              </div>
+            )}
+
+            {/* YRDE Error */}
+            {yrdeError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Revenue Analysis Failed</AlertTitle>
+                <AlertDescription>
+                  {yrdeError}
+                  <Button variant="link" className="p-0 h-auto ml-2" onClick={runYRDE}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -1313,6 +1407,22 @@ const VideoDetail = () => {
                   <Brain className="w-4 h-4" />
                 )}
                 {isRunningYAREE ? "Analyzing Algorithm..." : "🧠 YAREE Algorithm Engine"}
+              </Button>
+
+              {/* YRDE Revenue Engine Button */}
+              <Button
+                onClick={runYRDE}
+                disabled={isRunningYRDE}
+                variant="outline"
+                className="w-full gap-2 border-emerald-500/30 hover:bg-emerald-500/10"
+                size="lg"
+              >
+                {isRunningYRDE ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <DollarSign className="w-4 h-4" />
+                )}
+                {isRunningYRDE ? "Analyzing Revenue..." : "💰 Revenue Domination Engine"}
               </Button>
 
               {/* Format Indicator */}
