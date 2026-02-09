@@ -5,6 +5,7 @@ import AVOEAnalysisPanel from "@/components/video/AVOEAnalysisPanel";
 import ViralSEOPanel, { type ViralSEOResult } from "@/components/video/ViralSEOPanel";
 import YAREEPanel, { type YAREEResult } from "@/components/video/YAREEPanel";
 import YRDEPanel, { type YRDEResult } from "@/components/video/YRDEPanel";
+import ShortsDominationPanel, { type SDEResult } from "@/components/video/ShortsDominationPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -201,6 +202,11 @@ const VideoDetail = () => {
   const [yrdeResult, setYrdeResult] = useState<YRDEResult | null>(null);
   const [isRunningYRDE, setIsRunningYRDE] = useState(false);
   const [yrdeError, setYrdeError] = useState<string | null>(null);
+
+  // SDE (Shorts Domination Engine) state
+  const [sdeResult, setSdeResult] = useState<SDEResult | null>(null);
+  const [isRunningSDE, setIsRunningSDE] = useState(false);
+  const [sdeError, setSdeError] = useState<string | null>(null);
 
   // Calculate if video is a short (≤60 seconds)
   const isShort = video ? getDurationSeconds(video.duration) <= 60 : false;
@@ -780,6 +786,71 @@ const VideoDetail = () => {
     }
   };
 
+  // Run Shorts Domination Engine
+  const runSDE = async () => {
+    if (!user || !youtubeVideoId || !video) {
+      toast.error("Cannot run SDE: Missing video data");
+      return;
+    }
+
+    setIsRunningSDE(true);
+    setSdeError(null);
+
+    try {
+      let v = video;
+      if (!v.title) {
+        const { data } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("youtube_video_id", youtubeVideoId)
+          .maybeSingle();
+        if (data) {
+          v = {
+            id: data.id,
+            youtube_video_id: data.youtube_video_id,
+            title: data.title,
+            description: data.description,
+            thumbnail_url: data.thumbnail_url,
+            published_at: data.published_at,
+            duration: data.duration,
+            view_count: data.view_count ? Number(data.view_count) : null,
+            like_count: data.like_count ? Number(data.like_count) : null,
+            comment_count: data.comment_count ? Number(data.comment_count) : null,
+            tags: Array.isArray(data.tags) ? (data.tags as string[]) : null,
+          };
+        }
+      }
+
+      const { data: result, error: fnError } = await supabase.functions.invoke('shorts-domination', {
+        body: {
+          youtubeVideoId,
+          title: v.title,
+          durationSeconds: getDurationSeconds(v.duration),
+          viewCount: v.view_count ?? undefined,
+          likeCount: v.like_count ?? undefined,
+          commentCount: v.comment_count ?? undefined,
+          publishedAt: v.published_at || undefined,
+          description: v.description || '',
+          tags: v.tags || [],
+          thumbnailUrl: v.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message || 'SDE failed');
+
+      setSdeResult(result as SDEResult);
+      toast.success(`Shorts Domination Complete! Verdict: ${result.video_verdict}`);
+    } catch (err) {
+      console.error("SDE error:", err);
+      const msg = err instanceof Error ? err.message : "SDE failed";
+      setSdeError(msg);
+      toast.error(msg);
+    } finally {
+      setIsRunningSDE(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -1352,6 +1423,27 @@ const VideoDetail = () => {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* SDE Shorts Domination Results */}
+            {sdeResult && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                <ShortsDominationPanel result={sdeResult} />
+              </div>
+            )}
+
+            {/* SDE Error */}
+            {sdeError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Shorts Domination Failed</AlertTitle>
+                <AlertDescription>
+                  {sdeError}
+                  <Button variant="link" className="p-0 h-auto ml-2" onClick={runSDE}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -1424,6 +1516,24 @@ const VideoDetail = () => {
                 )}
                 {isRunningYRDE ? "Analyzing Revenue..." : "💰 Revenue Domination Engine"}
               </Button>
+
+              {/* SDE Shorts Domination Button (only for Shorts) */}
+              {isShort && (
+                <Button
+                  onClick={runSDE}
+                  disabled={isRunningSDE}
+                  variant="outline"
+                  className="w-full gap-2 border-violet-500/30 hover:bg-violet-500/10"
+                  size="lg"
+                >
+                  {isRunningSDE ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  {isRunningSDE ? "Analyzing Short..." : "⚡ Shorts Domination Engine"}
+                </Button>
+              )}
 
               {/* Format Indicator */}
               <div className="text-center text-sm text-muted-foreground">

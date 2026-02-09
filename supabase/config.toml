@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.yrde-analyze]
 verify_jwt = false
+
+[functions.shorts-domination]
+verify_jwt = false
