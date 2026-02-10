@@ -6,6 +6,7 @@ import ViralSEOPanel, { type ViralSEOResult } from "@/components/video/ViralSEOP
 import YAREEPanel, { type YAREEResult } from "@/components/video/YAREEPanel";
 import YRDEPanel, { type YRDEResult } from "@/components/video/YRDEPanel";
 import ShortsDominationPanel, { type SDEResult } from "@/components/video/ShortsDominationPanel";
+import ViewerIntentPanel, { type VIEResult } from "@/components/video/ViewerIntentPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -207,6 +208,11 @@ const VideoDetail = () => {
   const [sdeResult, setSdeResult] = useState<SDEResult | null>(null);
   const [isRunningSDE, setIsRunningSDE] = useState(false);
   const [sdeError, setSdeError] = useState<string | null>(null);
+
+  // VIE (Viewer Intent Engine) state
+  const [vieResult, setVieResult] = useState<VIEResult | null>(null);
+  const [isRunningVIE, setIsRunningVIE] = useState(false);
+  const [vieError, setVieError] = useState<string | null>(null);
 
   // Calculate if video is a short (≤60 seconds)
   const isShort = video ? getDurationSeconds(video.duration) <= 60 : false;
@@ -851,6 +857,72 @@ const VideoDetail = () => {
     }
   };
 
+  // Run Viewer Intent Engine
+  const runVIE = async () => {
+    if (!user || !youtubeVideoId || !video) {
+      toast.error("Cannot run VIE: Missing video data");
+      return;
+    }
+
+    setIsRunningVIE(true);
+    setVieError(null);
+
+    try {
+      let v = video;
+      if (!v.title) {
+        const { data } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("youtube_video_id", youtubeVideoId)
+          .maybeSingle();
+        if (data) {
+          v = {
+            id: data.id,
+            youtube_video_id: data.youtube_video_id,
+            title: data.title,
+            description: data.description,
+            thumbnail_url: data.thumbnail_url,
+            published_at: data.published_at,
+            duration: data.duration,
+            view_count: data.view_count ? Number(data.view_count) : null,
+            like_count: data.like_count ? Number(data.like_count) : null,
+            comment_count: data.comment_count ? Number(data.comment_count) : null,
+            tags: Array.isArray(data.tags) ? (data.tags as string[]) : null,
+          };
+        }
+      }
+
+      const { data: result, error: fnError } = await supabase.functions.invoke('viewer-intent-engine', {
+        body: {
+          youtubeVideoId,
+          title: v.title,
+          videoType: isShort ? 'short' : 'long',
+          durationSeconds: getDurationSeconds(v.duration),
+          viewCount: v.view_count ?? undefined,
+          likeCount: v.like_count ?? undefined,
+          commentCount: v.comment_count ?? undefined,
+          publishedAt: v.published_at || undefined,
+          description: v.description || '',
+          tags: v.tags || [],
+          thumbnailUrl: v.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message || 'VIE failed');
+
+      setVieResult(result as VIEResult);
+      toast.success(`Intent Engine Complete! Gravity Score: ${result.gravity_score?.total}/100`);
+    } catch (err) {
+      console.error("VIE error:", err);
+      const msg = err instanceof Error ? err.message : "VIE failed";
+      setVieError(msg);
+      toast.error(msg);
+    } finally {
+      setIsRunningVIE(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -1444,6 +1516,27 @@ const VideoDetail = () => {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* VIE Viewer Intent Results */}
+            {vieResult && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                <ViewerIntentPanel result={vieResult} />
+              </div>
+            )}
+
+            {/* VIE Error */}
+            {vieError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Viewer Intent Engine Failed</AlertTitle>
+                <AlertDescription>
+                  {vieError}
+                  <Button variant="link" className="p-0 h-auto ml-2" onClick={runVIE}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -1534,6 +1627,22 @@ const VideoDetail = () => {
                   {isRunningSDE ? "Analyzing Short..." : "⚡ Shorts Domination Engine"}
                 </Button>
               )}
+
+              {/* VIE Viewer Intent Engine Button */}
+              <Button
+                onClick={runVIE}
+                disabled={isRunningVIE}
+                variant="outline"
+                className="w-full gap-2 border-cyan-500/30 hover:bg-cyan-500/10"
+                size="lg"
+              >
+                {isRunningVIE ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Target className="w-4 h-4" />
+                )}
+                {isRunningVIE ? "Analyzing Intent..." : "🎯 Viewer Intent Engine"}
+              </Button>
 
               {/* Format Indicator */}
               <div className="text-center text-sm text-muted-foreground">
