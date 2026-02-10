@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.shorts-domination]
 verify_jwt = false
+
+[functions.viewer-intent-engine]
+verify_jwt = false
