@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.viewer-intent-engine]
 verify_jwt = false
+
+[functions.viewer-satisfaction-engine]
+verify_jwt = false

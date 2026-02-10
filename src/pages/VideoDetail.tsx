@@ -7,6 +7,7 @@ import YAREEPanel, { type YAREEResult } from "@/components/video/YAREEPanel";
 import YRDEPanel, { type YRDEResult } from "@/components/video/YRDEPanel";
 import ShortsDominationPanel, { type SDEResult } from "@/components/video/ShortsDominationPanel";
 import ViewerIntentPanel, { type VIEResult } from "@/components/video/ViewerIntentPanel";
+import SatisfactionEnginePanel, { type VSEResult } from "@/components/video/SatisfactionEnginePanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +49,7 @@ import {
   Rocket,
   Brain,
   DollarSign,
+  Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -213,6 +215,11 @@ const VideoDetail = () => {
   const [vieResult, setVieResult] = useState<VIEResult | null>(null);
   const [isRunningVIE, setIsRunningVIE] = useState(false);
   const [vieError, setVieError] = useState<string | null>(null);
+
+  // VSE (Viewer Satisfaction Engine) state
+  const [vseResult, setVseResult] = useState<VSEResult | null>(null);
+  const [isRunningVSE, setIsRunningVSE] = useState(false);
+  const [vseError, setVseError] = useState<string | null>(null);
 
   // Calculate if video is a short (≤60 seconds)
   const isShort = video ? getDurationSeconds(video.duration) <= 60 : false;
@@ -923,6 +930,72 @@ const VideoDetail = () => {
     }
   };
 
+  // Run Viewer Satisfaction Engine
+  const runVSE = async () => {
+    if (!user || !youtubeVideoId || !video) {
+      toast.error("Cannot run VSE: Missing video data");
+      return;
+    }
+
+    setIsRunningVSE(true);
+    setVseError(null);
+
+    try {
+      let v = video;
+      if (!v.title) {
+        const { data } = await supabase
+          .from("youtube_videos")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("youtube_video_id", youtubeVideoId)
+          .maybeSingle();
+        if (data) {
+          v = {
+            id: data.id,
+            youtube_video_id: data.youtube_video_id,
+            title: data.title,
+            description: data.description,
+            thumbnail_url: data.thumbnail_url,
+            published_at: data.published_at,
+            duration: data.duration,
+            view_count: data.view_count ? Number(data.view_count) : null,
+            like_count: data.like_count ? Number(data.like_count) : null,
+            comment_count: data.comment_count ? Number(data.comment_count) : null,
+            tags: Array.isArray(data.tags) ? (data.tags as string[]) : null,
+          };
+        }
+      }
+
+      const { data: result, error: fnError } = await supabase.functions.invoke('viewer-satisfaction-engine', {
+        body: {
+          youtubeVideoId,
+          title: v.title,
+          videoType: isShort ? 'short' : 'long',
+          durationSeconds: getDurationSeconds(v.duration),
+          viewCount: v.view_count ?? undefined,
+          likeCount: v.like_count ?? undefined,
+          commentCount: v.comment_count ?? undefined,
+          publishedAt: v.published_at || undefined,
+          description: v.description || '',
+          tags: v.tags || [],
+          thumbnailUrl: v.thumbnail_url || `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`,
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message || 'VSE failed');
+
+      setVseResult(result as VSEResult);
+      toast.success(`Satisfaction Engine Complete! Score: ${result.satisfaction_score?.total}/100`);
+    } catch (err) {
+      console.error("VSE error:", err);
+      const msg = err instanceof Error ? err.message : "VSE failed";
+      setVseError(msg);
+      toast.error(msg);
+    } finally {
+      setIsRunningVSE(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -1537,6 +1610,27 @@ const VideoDetail = () => {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* VSE Viewer Satisfaction Results */}
+            {vseResult && (
+              <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                <SatisfactionEnginePanel result={vseResult} />
+              </div>
+            )}
+
+            {/* VSE Error */}
+            {vseError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Satisfaction Engine Failed</AlertTitle>
+                <AlertDescription>
+                  {vseError}
+                  <Button variant="link" className="p-0 h-auto ml-2" onClick={runVSE}>
+                    Retry
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -1642,6 +1736,22 @@ const VideoDetail = () => {
                   <Target className="w-4 h-4" />
                 )}
                 {isRunningVIE ? "Analyzing Intent..." : "🎯 Viewer Intent Engine"}
+              </Button>
+
+              {/* VSE Viewer Satisfaction Engine Button */}
+              <Button
+                onClick={runVSE}
+                disabled={isRunningVSE}
+                variant="outline"
+                className="w-full gap-2 border-rose-500/30 hover:bg-rose-500/10"
+                size="lg"
+              >
+                {isRunningVSE ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Heart className="w-4 h-4" />
+                )}
+                {isRunningVSE ? "Analyzing Satisfaction..." : "❤️ Satisfaction Engine"}
               </Button>
 
               {/* Format Indicator */}
