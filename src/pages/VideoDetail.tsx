@@ -8,6 +8,7 @@ import YRDEPanel, { type YRDEResult } from "@/components/video/YRDEPanel";
 import ShortsDominationPanel, { type SDEResult } from "@/components/video/ShortsDominationPanel";
 import ViewerIntentPanel, { type VIEResult } from "@/components/video/ViewerIntentPanel";
 import SatisfactionEnginePanel, { type VSEResult } from "@/components/video/SatisfactionEnginePanel";
+import QuantumDashboard from "@/components/video/QuantumDashboard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1636,128 +1637,34 @@ const VideoDetail = () => {
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 space-y-4">
-              {/* AVOE Analysis Button */}
-              <Button
-                onClick={handleAnalyzeClick}
-                disabled={isAnalyzing}
-                className="w-full gap-2"
-                size="lg"
-              >
-                {isAnalyzing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Target className="w-4 h-4" />
-                )}
-                {isAnalyzing 
-                  ? `Analyzing ${youtubeVideoId.slice(0, 8)}...` 
-                  : analysisRuns.length > 0 
-                    ? "Rerun AVOE Analysis" 
-                    : "Analyze with AVOE"
-                }
-              </Button>
-
-              {/* Viral SEO Engine Button */}
-              <Button
-                onClick={runViralSEO}
-                disabled={isRunningViralSEO}
-                variant="outline"
-                className="w-full gap-2 border-primary/30 hover:bg-primary/10"
-                size="lg"
-              >
-                {isRunningViralSEO ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Rocket className="w-4 h-4" />
-                )}
-                {isRunningViralSEO ? "Running SEO Engine..." : "🚀 Viral SEO Engine"}
-              </Button>
-
-              {/* YAREE Algorithm Analysis Button */}
-              <Button
-                onClick={runYAREE}
-                disabled={isRunningYAREE}
-                variant="outline"
-                className="w-full gap-2 border-amber-500/30 hover:bg-amber-500/10"
-                size="lg"
-              >
-                {isRunningYAREE ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Brain className="w-4 h-4" />
-                )}
-                {isRunningYAREE ? "Analyzing Algorithm..." : "🧠 YAREE Algorithm Engine"}
-              </Button>
-
-              {/* YRDE Revenue Engine Button */}
-              <Button
-                onClick={runYRDE}
-                disabled={isRunningYRDE}
-                variant="outline"
-                className="w-full gap-2 border-emerald-500/30 hover:bg-emerald-500/10"
-                size="lg"
-              >
-                {isRunningYRDE ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <DollarSign className="w-4 h-4" />
-                )}
-                {isRunningYRDE ? "Analyzing Revenue..." : "💰 Revenue Domination Engine"}
-              </Button>
-
-              {/* SDE Shorts Domination Button (only for Shorts) */}
-              {isShort && (
-                <Button
-                  onClick={runSDE}
-                  disabled={isRunningSDE}
-                  variant="outline"
-                  className="w-full gap-2 border-violet-500/30 hover:bg-violet-500/10"
-                  size="lg"
-                >
-                  {isRunningSDE ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Zap className="w-4 h-4" />
-                  )}
-                  {isRunningSDE ? "Analyzing Short..." : "⚡ Shorts Domination Engine"}
-                </Button>
-              )}
-
-              {/* VIE Viewer Intent Engine Button */}
-              <Button
-                onClick={runVIE}
-                disabled={isRunningVIE}
-                variant="outline"
-                className="w-full gap-2 border-cyan-500/30 hover:bg-cyan-500/10"
-                size="lg"
-              >
-                {isRunningVIE ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Target className="w-4 h-4" />
-                )}
-                {isRunningVIE ? "Analyzing Intent..." : "🎯 Viewer Intent Engine"}
-              </Button>
-
-              {/* VSE Viewer Satisfaction Engine Button */}
-              <Button
-                onClick={runVSE}
-                disabled={isRunningVSE}
-                variant="outline"
-                className="w-full gap-2 border-rose-500/30 hover:bg-rose-500/10"
-                size="lg"
-              >
-                {isRunningVSE ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Heart className="w-4 h-4" />
-                )}
-                {isRunningVSE ? "Analyzing Satisfaction..." : "❤️ Satisfaction Engine"}
-              </Button>
-
-              {/* Format Indicator */}
-              <div className="text-center text-sm text-muted-foreground">
-                {isShort ? "🎬 Short Video Analysis Mode" : "📺 Long Video Analysis Mode"}
-              </div>
+              <QuantumDashboard
+                engines={{
+                  avoe: avoeAnalysis,
+                  seo: seoResult,
+                  yaree: yareeResult,
+                  yrde: yrdeResult,
+                  sde: sdeResult,
+                  vie: vieResult,
+                  vse: vseResult,
+                }}
+                loading={{
+                  avoe: isAnalyzing,
+                  seo: isRunningViralSEO,
+                  yaree: isRunningYAREE,
+                  yrde: isRunningYRDE,
+                  sde: isRunningSDE,
+                  vie: isRunningVIE,
+                  vse: isRunningVSE,
+                }}
+                isShort={isShort}
+                onRunAVOE={handleAnalyzeClick}
+                onRunSEO={runViralSEO}
+                onRunYAREE={runYAREE}
+                onRunYRDE={runYRDE}
+                onRunSDE={runSDE}
+                onRunVIE={runVIE}
+                onRunVSE={runVSE}
+              />
 
               {/* Analysis Error */}
               {analysisError && (
@@ -1793,54 +1700,10 @@ const VideoDetail = () => {
                 </div>
               )}
 
-              {/* Quick Score Summary (when analysis exists) */}
-              {!isAnalyzing && avoeAnalysis && (
-                <div className="bg-card rounded-xl border border-border p-6 space-y-4">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-primary mb-1">
-                      {avoeAnalysis.overallScore}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Overall Score</div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Title</span>
-                      <span className="font-medium">{avoeAnalysis.titleScore.total}/100</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Description</span>
-                      <span className="font-medium">{avoeAnalysis.descriptionScore.total}/100</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Tags</span>
-                      <span className="font-medium">{avoeAnalysis.tagsScore.total}/100</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Virality</span>
-                      <span className="font-medium">{avoeAnalysis.viralityScore.total}/100</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-border">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Confidence</span>
-                      <span className="font-medium">{avoeAnalysis.confidenceScore}/100</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* No Analysis Yet */}
-              {!isAnalyzing && !avoeAnalysis && !analysisError && (
-                <div className="bg-card rounded-xl border border-border p-6 text-center">
-                  <Target className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="font-medium mb-2">No Analysis Yet</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Click "Analyze with AVOE" to get AI-powered optimization recommendations for this video.
-                  </p>
-                </div>
-              )}
+              {/* Format Indicator */}
+              <div className="text-center text-sm text-muted-foreground">
+                {isShort ? "🎬 Short Video Analysis Mode" : "📺 Long Video Analysis Mode"}
+              </div>
             </div>
           </div>
         </div>
