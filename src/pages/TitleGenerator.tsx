@@ -34,6 +34,9 @@ import { TitleIntelligence } from "@/types/titleIntelligence";
 import TitleCategorySection from "@/components/titles/TitleCategorySection";
 import ABTestSection from "@/components/titles/ABTestSection";
 import TopPickCard from "@/components/titles/TopPickCard";
+import TSELandscapePanel from "@/components/titles/TSELandscapePanel";
+import TSEScoreTable from "@/components/titles/TSEScoreTable";
+import TSEFinalPickCard from "@/components/titles/TSEFinalPickCard";
 
 const TitleGenerator = () => {
   const [topic, setTopic] = useState("");
@@ -318,9 +321,10 @@ const TitleGenerator = () => {
                     psychological insights, algorithm analysis, and A/B test variations.
                   </p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="outline">5 Title Categories</Badge>
-                    <Badge variant="outline">Strategic Explanations</Badge>
-                    <Badge variant="outline">A/B Test Clusters</Badge>
+                    <Badge variant="outline">Landscape Analysis</Badge>
+                    <Badge variant="outline">10 Scored Titles</Badge>
+                    <Badge variant="outline">5-Dimension Scoring</Badge>
+                    <Badge variant="outline">Final Supremacy Pick</Badge>
                     {channelDNA && (
                       <Badge className="bg-purple-500/10 text-purple-500">DNA-Personalized</Badge>
                     )}
@@ -329,8 +333,33 @@ const TitleGenerator = () => {
               </Card>
             ) : (
               <>
-                {/* Top Pick */}
-                {intelligence.topPick && (
+                {/* TSE Landscape Analysis */}
+                {intelligence.tse?.landscape && (
+                  <TSELandscapePanel landscape={intelligence.tse.landscape} />
+                )}
+
+                {/* TSE Strategy + Final Pick */}
+                {intelligence.tse?.strategy && intelligence.tse?.finalPick && (
+                  <TSEFinalPickCard
+                    strategy={intelligence.tse.strategy}
+                    finalPick={intelligence.tse.finalPick}
+                    onCopy={handleCopy}
+                    copiedTitle={copiedTitle}
+                    hasDNA={personalizedWithDNA}
+                  />
+                )}
+
+                {/* TSE Score Table */}
+                {intelligence.tse?.scoredTitles?.length > 0 && (
+                  <TSEScoreTable
+                    titles={intelligence.tse.scoredTitles}
+                    onCopy={handleCopy}
+                    copiedTitle={copiedTitle}
+                  />
+                )}
+
+                {/* Legacy Top Pick (fallback if no TSE) */}
+                {!intelligence.tse?.finalPick && intelligence.topPick && (
                   <TopPickCard
                     topPick={intelligence.topPick}
                     onCopy={handleCopy}
